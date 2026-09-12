@@ -48,7 +48,8 @@ The ML experiment is the project. OSM preparation exists only to feed it.
 
 - Use the Python version pinned by `.python-version` and `pyproject.toml`.
 - Use `uv` for Python, environments, dependencies, locking, and command execution.
-- Run Python tools through `uv run`.
+- Install dependencies and run Python tools inside the Compose service, using `uv`.
+- Keep Torch execution and its dependency cache inside Docker. Do not install or cache Torch on the host.
 - Use `uv add <package>` for runtime dependencies.
 - Use `uv add --dev <package>` for development dependencies.
 - Use `uv remove <package>` to remove dependencies.
@@ -58,13 +59,13 @@ The ML experiment is the project. OSM preparation exists only to feed it.
 Common commands:
 
 ```bash
-uv sync --locked
-uv run atlas --help
-uv run pytest
-uv run ty check
-uv run ruff check .
-uv run ruff format --check .
-uv run pre-commit run --all-files
+docker compose run --rm atlas uv sync --locked
+docker compose run --rm atlas uv run atlas --help
+docker compose run --rm atlas uv run pytest
+docker compose run --rm atlas uv run ty check
+docker compose run --rm atlas uv run ruff check .
+docker compose run --rm atlas uv run ruff format --check .
+docker compose run --rm atlas uv run pre-commit run --all-files
 ```
 
 ## Code
@@ -119,7 +120,7 @@ Before exceeding the default budget, explain what realistic regression each addi
 - Run the narrowest relevant test while developing:
 
 ```bash
-uv run pytest tests/path/to/test_file.py::test_name
+docker compose run --rm atlas uv run pytest tests/path/to/test_file.py::test_name
 ```
 
 - Do not chase coverage percentage or test trivial implementation details.
@@ -152,8 +153,9 @@ These rules protect the validity of the proof of concept and are not optional au
 
 - Supported workflows must run through Docker Compose.
 - Start with one reusable image and service.
-- Maintain a guaranteed CPU path.
-- GPU support remains optional until `atlas doctor` proves it works.
+- Configure AMD ROCm in the main Compose service. Do not add CPU/GPU profiles or overrides.
+- ML commands require the AMD GPU and must fail if it is unavailable. Do not implement CPU fallback.
+- Validate GPU execution inside Compose with `atlas doctor`. Do not request GPU device access for the agent process.
 - Do not bake data, credentials, checkpoints, or caches into the image.
 
 ## Before handoff
@@ -161,15 +163,15 @@ These rules protect the validity of the proof of concept and are not optional au
 Run from the repository root:
 
 ```bash
-uv sync --locked
-uv run ruff format --check .
-uv run ruff check .
-uv run ty check
-uv run pytest
-uv run pre-commit run --all-files
+docker compose run --rm atlas uv sync --locked
+docker compose run --rm atlas uv run ruff format --check .
+docker compose run --rm atlas uv run ruff check .
+docker compose run --rm atlas uv run ty check
+docker compose run --rm atlas uv run pytest
+docker compose run --rm atlas uv run pre-commit run --all-files
 ```
 
-If the repository provides Compose equivalents for the current work, run those too. If a check cannot run, give the exact command and reason.
+Run `docker compose run --rm atlas` for GPU runtime changes. If a check cannot run, give the exact command and reason.
 
 Keep the completion report short:
 

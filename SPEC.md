@@ -2,7 +2,7 @@
 
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
-**Version:** 0.2  
+**Version:** 0.3\
 **Last updated:** 2026-09-12
 
 ## 1. How to use this specification
@@ -80,8 +80,8 @@ Do not add checksums, Git-state capture, container digests, hardware archives, i
 - Everything runs on one consumer desktop that is also used for ordinary work and gaming.
 - No cluster, distributed training, or required cloud compute.
 - No required stage may depend on NVIDIA CUDA.
-- CPU execution must work.
-- AMD GPU acceleration is optional and must not block the first vertical slice.
+- ML training and model execution use the AMD GPU through Docker Compose.
+- ML commands must fail if GPU execution is unavailable. Do not implement CPU fallback.
 - Models must fit comfortably in available memory.
 - Training may run for days or weeks after short runs prove that the setup works.
 - Long training jobs must checkpoint and resume without a general-purpose job-management system.
@@ -389,8 +389,8 @@ Starting range:
 
 Required capabilities:
 
-- CPU training;
-- configurable device and batch size;
+- AMD GPU training through Docker Compose;
+- configurable batch size;
 - a clear embedding output;
 - masked loss for genuinely unavailable values;
 - checkpoint and resume;
@@ -453,7 +453,9 @@ Raw and generated data remain outside Git. Avoid accidental overwrites, but do n
 
 All supported workflows must run through Docker Compose. Start with one reusable application image and one service. Different commands may use the same service.
 
-CPU is the guaranteed path. Add an AMD GPU override/profile only after a small device test works on the owner's machine. Do not silently use CPU when GPU was explicitly requested.
+The main Compose service uses AMD ROCm on WSL and passes `/dev/dxg` into the container.
+ML work always uses the AMD GPU. Do not add CPU/GPU profiles, overrides, or CPU fallback.
+Validate GPU execution inside the container. The agent process does not need direct GPU device access.
 
 ### 12.2 Minimal CLI
 
@@ -470,7 +472,8 @@ atlas explore-embeddings --run <run-directory>
 
 Do not create empty commands for later milestones.
 
-`atlas doctor` should print Python, PyTorch, CPU/GPU availability, and relevant tool versions, then run a tiny tensor operation. It does not need to create a hardware inventory artifact.
+`atlas doctor` prints Python, PyTorch, GPU availability, and relevant tool versions, then checks a small GPU tensor operation and its gradient.
+It must fail if ROCm or the AMD GPU is unavailable. It does not need to create a hardware inventory artifact.
 
 Data downloading may initially be a documented manual step if that is simpler and more reliable than writing a downloader.
 
@@ -517,8 +520,9 @@ Essential automated checks:
 - inputs contain no future months;
 - fixed cell selection does not depend on later activity;
 - normalization uses training data only;
-- a tiny CPU training run completes and exports embeddings;
 - checkpoint resume works at a basic smoke-test level.
+
+A manual acceptance check must verify that a small GPU training run completes and exports embeddings.
 
 Do not build an exhaustive OSM conformance suite, property-testing framework, large integration-test harness, or test-only mini-platform. A small manual real-data check during Milestone 1 is sufficient.
 
@@ -538,7 +542,7 @@ Deliver:
 
 Do not add a database, run registry, manifest layer, web app, data downloader, or empty future modules.
 
-**Gate 0:** run `doctor` on the owner's machine and decide whether AMD acceleration is worth configuring now. CPU work continues regardless.
+**Gate 0:** verify `atlas doctor` on the owner's AMD GPU through the main Compose service.
 
 ### Milestone 1 — Real historical-data vertical slice
 
@@ -619,7 +623,6 @@ Do not resolve these during Milestone 0:
 - train/validation/test dates and geographic groups;
 - loss functions and target transforms;
 - numeric success threshold;
-- AMD GPU integration;
 - neighbouring or multi-scale inputs;
 - GNN architecture;
 - continual-learning algorithm;

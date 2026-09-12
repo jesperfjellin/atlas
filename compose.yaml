@@ -7,8 +7,25 @@ services:
         ATLAS_GID: "${ATLAS_GID:-1000}"
     user: "${ATLAS_UID:-1000}:${ATLAS_GID:-1000}"
     init: true
+    devices:
+      - /dev/dxg:/dev/dxg
     environment:
       UV_CACHE_DIR: /tmp/uv-cache
       PRE_COMMIT_HOME: /tmp/pre-commit
+      HSA_ENABLE_DXG_DETECTION: "1"
+      # ROCm profiling expects Linux KFD interfaces that WSL does not provide.
+      ROCPROFILER_REGISTER_ENABLED: "0"
     volumes:
       - .:/workspace
+      - venv:/opt/venv
+      - uv-cache:/tmp/uv-cache
+      - type: bind
+        source: /usr/lib/wsl/lib/libdxcore.so
+        target: /usr/lib/libdxcore.so
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  venv:
+  uv-cache:
