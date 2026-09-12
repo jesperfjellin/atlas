@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<osm version="0.6" generator="atlas-synthetic-history">
+  <node id="1" version="1" timestamp="2023-01-01T00:00:00Z" visible="true" lon="8.0" lat="58.15"><tag k="amenity" v="cafe"/></node>
+  <node id="1" version="2" timestamp="2023-01-10T00:00:00Z" visible="true" lon="8.0" lat="58.15"><tag k="amenity" v="school"/></node>
+  <node id="1" version="3" timestamp="2023-02-01T00:00:00Z" visible="true" lon="8.10" lat="58.18"><tag k="amenity" v="school"/></node>
+  <node id="1" version="4" timestamp="2023-03-10T00:00:00Z" visible="false"/>
+  <node id="2" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.0" lat="58.15"/>
+  <node id="2" version="2" timestamp="2023-01-11T00:00:00Z" visible="true" lon="8.0" lat="58.15"><tag k="building" v="yes"/></node>
+  <node id="2" version="3" timestamp="2023-01-12T00:00:00Z" visible="true" lon="8.0" lat="58.15"><tag k="building" v="no"/></node>
+  <node id="3" version="1" timestamp="2023-04-01T00:00:00Z" visible="true" lon="8.0" lat="58.15"><tag k="building" v="yes"/></node>
+  <node id="4" version="1" timestamp="2023-03-01T00:00:00Z" visible="true" lon="8.10" lat="58.18"/>
+  <node id="10" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.001" lat="58.151"/>
+  <node id="10" version="2" timestamp="2023-02-10T00:00:00Z" visible="true" lon="8.101" lat="58.181"/>
+  <node id="11" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.002" lat="58.151"/>
+  <node id="11" version="2" timestamp="2023-01-15T00:00:00Z" visible="true" lon="8.003" lat="58.151"/>
+  <node id="11" version="3" timestamp="2023-02-10T00:00:00Z" visible="true" lon="8.103" lat="58.181"/>
+  <node id="12" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.002" lat="58.152"/>
+  <node id="12" version="2" timestamp="2023-02-10T00:00:00Z" visible="true" lon="8.102" lat="58.182"/>
+  <node id="13" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.001" lat="58.152"/>
+  <node id="13" version="2" timestamp="2023-02-10T00:00:00Z" visible="true" lon="8.101" lat="58.182"/>
+  <node id="20" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.001" lat="58.15"/>
+  <node id="21" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.002" lat="58.15"/>
+  <node id="30" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.0" lat="58.15"/>
+  <node id="40" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.004" lat="58.154"/>
+  <node id="41" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.008" lat="58.154"/>
+  <node id="42" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.008" lat="58.158"/>
+  <node id="43" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.004" lat="58.158"/>
+  <node id="44" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.005" lat="58.155"/>
+  <node id="45" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.006" lat="58.155"/>
+  <node id="46" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.006" lat="58.156"/>
+  <node id="47" version="1" timestamp="2022-12-15T00:00:00Z" visible="true" lon="8.005" lat="58.156"/>
+  <way id="10" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="10"/><nd ref="11"/><nd ref="12"/><nd ref="13"/><nd ref="10"/><tag k="building" v="yes"/></way>
+  <way id="20" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="20"/><nd ref="21"/><tag k="highway" v="residential"/></way>
+  <way id="20" version="2" timestamp="2023-01-20T00:00:00Z" visible="true"><nd ref="20"/><nd ref="21"/><tag k="highway" v="primary"/></way>
+  <way id="20" version="3" timestamp="2023-02-20T00:00:00Z" visible="true"><nd ref="20"/><nd ref="21"/><tag k="amenity" v="restaurant"/></way>
+  <way id="20" version="4" timestamp="2023-03-20T00:00:00Z" visible="false"/>
+  <way id="30" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="30"/><nd ref="999"/><tag k="highway" v="path"/></way>
+  <way id="30" version="2" timestamp="2023-01-05T00:00:00Z" visible="true"><nd ref="30"/><nd ref="999"/><tag k="highway" v="track"/></way>
+  <way id="40" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="40"/><nd ref="41"/><nd ref="42"/></way>
+  <way id="41" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="42"/><nd ref="43"/><nd ref="40"/></way>
+  <way id="42" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="44"/><nd ref="45"/><nd ref="46"/><nd ref="47"/><nd ref="44"/></way>
+  <way id="50" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><nd ref="40"/><nd ref="42"/><nd ref="41"/><nd ref="43"/><nd ref="40"/></way>
+  <relation id="40" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><member type="way" ref="40" role="outer"/><member type="way" ref="41" role="outer"/><member type="way" ref="42" role="inner"/><tag k="type" v="multipolygon"/><tag k="building" v="yes"/></relation>
+  <relation id="50" version="1" timestamp="2022-12-15T00:00:00Z" visible="true"><member type="way" ref="50" role="outer"/><tag k="type" v="multipolygon"/><tag k="building" v="yes"/></relation>
+</osm>

@@ -1,0 +1,14 @@
+# Development domain declared before inspecting OSM history.
+# Earlier history used for reconstruction is also development data.
+purpose = "development"
+history = "../data/raw/kristiansand.osh.pbf"
+output = "../data/derived/kristiansand-2023"
+bbox = [7.90, 58.05, 8.15, 58.25] # west, south, east, north
+h3_resolution = 6
+start = 2023-01-01T00:00:00Z
+end = 2024-01-01T00:00:00Z
+# Full history is incomplete before the OSM API 0.5 transition in 2007.
+coverage_start = 2008-01-01T00:00:00Z
+# Declared coverage of the supplied full-history download, limited to this slice.
+# The source has no replication timestamp header. Never infer coverage from edits.
+coverage_end = 2024-01-01T00:00:00Z

@@ -651,4 +651,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Implement Milestone 0 only. Keep the existing `atlas` package name. Treat this specification and `AGENTS.md` as authoritative. Build the smallest conventional scaffold that passes the listed checks. Do not create audit, provenance, registry, data-pipeline, database, API, frontend, or future-model infrastructure.
+> Implement Milestone 1 only. Keep the existing `atlas` package name. Use a small development extract from the supplied Norway history file. Verify historical geometry and the three change families before proposing a Norway-wide build. Do not implement later milestones or supporting frameworks.

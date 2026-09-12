@@ -8,7 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.5 /uv /uvx /bin/
 ADD https://github.com/ROCm/librocdxg/releases/download/v1.2.0/rocdxg-roct_1.2.0_amd64.deb /tmp/rocdxg.deb
 # MIOpen compiles GRU kernels at runtime and needs C++ headers.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git libatomic1 libstdc++-12-dev \
+    && apt-get install -y --no-install-recommends git libatomic1 libstdc++-12-dev osmium-tool \
     && dpkg -i /tmp/rocdxg.deb \
     && rm -rf /var/lib/apt/lists/* /tmp/rocdxg.deb \
     && mkdir -p /opt/venv /tmp/uv-cache \

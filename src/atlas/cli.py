@@ -5,6 +5,7 @@ import platform
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
 
 def doctor() -> None:
@@ -67,10 +68,26 @@ def main() -> int:
     commands.add_parser(
         "doctor", help="Show runtime versions and check AMD GPU tensors and gradients."
     )
-    parser.parse_args()
+    builder = commands.add_parser(
+        "build-dataset",
+        help="Build monthly features from a development history extract.",
+    )
+    builder.add_argument("--config", required=True, type=Path)
+    args = parser.parse_args()
     try:
-        doctor()
-    except (ImportError, OSError, RuntimeError, subprocess.SubprocessError) as error:
-        print(f"atlas doctor failed: {error}", file=sys.stderr)
+        if args.command == "doctor":
+            doctor()
+        else:
+            from atlas.dataset import build_dataset
+
+            build_dataset(args.config)
+    except (
+        ImportError,
+        OSError,
+        RuntimeError,
+        ValueError,
+        subprocess.SubprocessError,
+    ) as error:
+        print(f"atlas {args.command} failed: {error}", file=sys.stderr)
         return 1
     return 0
