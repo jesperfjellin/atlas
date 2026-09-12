@@ -275,6 +275,29 @@ Do not build a quality-scoring subsystem around these counters.
 
 The small taxonomy and these rules are frozen at Gate 1 after testing them on a real vertical slice.
 
+### 7.6 Initial feature and geometry conventions
+
+The implemented taxonomy contains buildings, four road groups, four POI groups, and land use, as defined in [features.py](src/atlas/features.py).
+Road categories apply to ways. One POI category is selected in this order: retail, food, services, other.
+An entity may also be a building or land-use feature. `building=no` and `landuse=no` are excluded.
+Mapped state includes entity and category counts, building and land-use area in square metres, and road length in metres.
+Raw edits include untagged nodes.
+
+Boundary snapshots use the state immediately before the boundary.
+Referenced nodes and ways are resolved at the relevant historical time.
+Child edits can change parent geometry and semantic cell assignment without adding parent raw edits.
+When geometry becomes reconstructable or unavailable, net state change need not equal semantic additions minus removals.
+OSM timestamps have one-second precision. Reference lookup uses the last version in that second for the after-state and excludes that second for the before-state.
+
+Lines use a midpoint along geodesic segment lengths. Area and length use WGS84 geodesic measurements.
+The relation assembler supports complete way-member multipolygons with disjoint outer rings and ordinary holes.
+It skips nested same-role rings, nested relation members, unsupported relation types, missing references, and invalid topology.
+Gaps in entity version history cause the affected transition to be skipped.
+
+Each visible opening snapshot is one geometry assignment attempt.
+Each direct or child-induced transition is one paired assignment attempt. Reused monthly snapshots add no assignment attempts.
+Counters include candidates outside the study cells and are not a measure of feature completeness within those cells.
+
 ## 8. Development and reserved test data
 
 Leakage protection is one of the few scientific safeguards that must remain strict, because without it the ML result is meaningless.
@@ -537,7 +560,7 @@ Deliver:
 - Ruff, `ty`, pytest, and pre-commit configuration;
 - one Dockerfile and one Compose service;
 - a small `atlas doctor` command;
-- minimal README commands;
+- a conceptual README with data attribution and links to the specification and roadmap;
 - one smoke test.
 
 Do not add a database, run registry, manifest layer, web app, data downloader, or empty future modules.

@@ -51,7 +51,8 @@ Spatial context, continual learning, live updates, and an inspection application
 - Completed batches survive interruption. A real development restart preserved 22 completed batches and reproduced the original 2023 features.
 - `configs/split.yaml` fixes the domain, temporal partitions, geographic holdouts, neighbouring-cell buffers, and Kristiansand exclusion before new target summaries.
 - A PyTorch dataset supplies 24-month inputs, six-month change targets, calendar encodings, and availability masks. Synthetic checks protect alignment and training-only input scaling.
-- The README provides extraction, build, development, and attribution instructions, along with the small taxonomy and geometry limits.
+- A real development batch passed GPU loading on the RX 7900 XTX: inputs `(32, 24, 104)`, targets `(32, 6, 37)`, and boolean target masks.
+- The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 These capabilities establish runtime and input-preparation readiness. They provide no evidence of predictive skill or useful learned representations.
 
@@ -98,7 +99,7 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
-Milestone 2 still needs the completed Norway build, real GPU batch acceptance, development target summaries, and Gate 2 decisions.
+Milestone 2 still needs the completed Norway build, acceptance of a Norway corpus batch, development target summaries, and Gate 2 decisions.
 The fixed Natural Earth land boundary contains 14,446 H3 resolution-6 cells across mainland Norway, Svalbard, and Jan Mayen.
 Geographic groups contain 11,469 training cells, 980 validation cells, 1,002 reserved-test cells, and 995 buffer cells.
 The loader excludes the previously inspected Kristiansand cells from reserved temporal testing as well.
