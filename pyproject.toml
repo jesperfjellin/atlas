@@ -1,7 +1,48 @@
 [project]
 name = "atlas"
 version = "0.1.0"
-description = "Add your description here"
+description = "A small learning experiment on changes in OpenStreetMap"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "numpy>=2.5.3",
+    "torch>=2.14.0",
+]
+
+[project.scripts]
+atlas = "atlas.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.5,<0.12.0"]
+build-backend = "uv_build"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+    "ty>=0.0.80",
+]

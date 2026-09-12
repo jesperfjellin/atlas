@@ -13,9 +13,10 @@ The initial model uses 24 complete months of observations to predict the followi
 The first useful result needs both a fair baseline comparison and evidence that learned embeddings add value beyond the input features.
 A negative result remains a valid outcome.
 
-The repository contains Python 3.14 project metadata and an empty `atlas` package.
-It has no runnable CLI, data preparation workflow, or training workflow.
-The next implementation milestone is the minimal CPU scaffold in Milestone 0. Code implementation awaits the owner's instruction.
+Milestone 0 is complete: the repository provides a runnable CPU scaffold for Python 3.14.
+The `atlas doctor` command works locally and through Docker Compose.
+Data preparation and training remain unimplemented.
+The next implementation milestone is Milestone 1, subject to the owner's instruction after [Gate 0](SPEC.md#milestone-0--minimal-scaffold).
 
 ## Prototype priorities
 
@@ -32,12 +33,17 @@ Spatial context, continual learning, live updates, and an inspection application
 
 ## Implemented capabilities
 
-No runnable experiment capabilities are implemented yet.
-Project metadata and agreed requirements provide a starting point, but do not establish a working scaffold or scientific result.
+- The installed `atlas` CLI reports runtime versions and GPU availability, then performs a small CPU tensor operation.
+- `uv.lock` fixes the CPU PyTorch dependencies and the pytest, Ruff, `ty`, and pre-commit tools.
+- One Docker image and one Compose service support the CLI and development checks, with a separate container environment.
+- A smoke test exercises the installed CLI and its CPU tensor check.
+- The README provides startup commands, development checks, and OSM attribution and license information.
+
+These capabilities establish runtime readiness. They provide no evidence of predictive skill or useful learned representations.
 
 ## Remaining work
 
-- [ ] **Milestone 0 — CPU scaffold:** runnable `atlas doctor`, locked dependencies, development checks, one Compose service, startup instructions, and a smoke test.
+- [x] **Milestone 0 — CPU scaffold:** runnable `atlas doctor`, locked dependencies, development checks, one Compose service, startup instructions, and a smoke test.
 - [ ] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [ ] **Milestone 2 — Norway corpus:** produce cell-month Parquet data, fixed temporal and geographic splits, development summaries, and a PyTorch data loader.
 - [ ] **Milestone 3 — Baselines:** compare zero change, recent-rate persistence, and boosted trees, then set the minimum worthwhile neural improvement.
@@ -57,8 +63,11 @@ The final reserved-test evaluation follows the frozen model choice.
 
 ## Blockers and next decisions
 
-No known blocker prevents Milestone 0.
-The CPU environment and practical AMD support remain unverified until the scaffold runs on the owner's machine at Gate 0.
+No technical blocker remains for Milestone 0.
+The CPU runtime works locally and through Compose.
+The CPU PyTorch build reports no accessible GPU. This result does not establish whether the machine supports AMD acceleration.
+At [Gate 0](SPEC.md#milestone-0--minimal-scaffold), the owner must decide whether to configure optional AMD acceleration now.
+The CPU path is ready for the next milestone.
 
 The history source, usable years, geometry reconstruction, and Norway-wide resource requirements need evidence from the small data slice at Gate 1.
 These later decisions do not block the scaffold.

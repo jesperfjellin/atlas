@@ -37,7 +37,9 @@ The ML experiment is the project. OSM preparation exists only to feed it.
 
 - Inspect the relevant code, tests, configuration, and Git status before editing.
 - Preserve unrelated user changes and keep the patch narrowly scoped.
-- Do not commit, push, delete data, or run destructive Git commands unless explicitly asked.
+- Commit completed work directly to `main` in meaningful chunks after the required checks pass.
+- Group related changes into one commit. Do not create a commit for every minor edit.
+- Do not push, delete data, or run destructive Git commands unless explicitly asked.
 - Do not start a full Norway data build unless the relevant gate has been approved.
 - Never hide a failing check or silently weaken a test to make it pass.
 
