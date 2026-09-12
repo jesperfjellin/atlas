@@ -44,6 +44,44 @@ def history(tmp_path: Path) -> History:
     return read_history(path, START, END)
 
 
+def test_discarded_timestamp_reversal_keeps_the_valid_opening_state(
+    tmp_path: Path,
+) -> None:
+    # Norway way 8332583 has an 86-second reversal in March 2008, before our window.
+    source = tmp_path / "reversed.osh"
+    source.write_text(
+        '<osm version="0.6">'
+        '<way id="1" version="3" timestamp="2008-03-17T04:44:35Z" visible="true"/>'
+        '<way id="1" version="4" timestamp="2008-03-17T04:43:09Z" visible="true"/>'
+        '<way id="1" version="7" timestamp="2012-11-29T18:57:13Z" visible="true">'
+        '<nd ref="10"/><nd ref="11"/></way>'
+        '<way id="1" version="8" timestamp="2017-12-07T21:34:03Z" visible="false"/>'
+        "</osm>"
+    )
+    path = tmp_path / "reversed.osh.pbf"
+    header = osmium.io.Header()
+    header.has_multiple_object_versions = True
+    with osmium.SimpleWriter(path, header=header) as writer:
+        for obj in osmium.FileProcessor(source):
+            writer.add(obj)
+    start = datetime(2015, 1, 1, tzinfo=UTC)
+    retained = read_history(path, start, END)
+    records = retained.versions[("w", 1)]
+    assert [version.number for version in records] == [7, 8]
+    assert retained.at(("w", 1), start, inclusive=False) == records[0]
+    assert records[0].nodes == (10, 11)
+    (transition,) = retained.transitions(start, END)
+    assert transition.before == records[0] and transition.after == records[1]
+    assert transition.complete and not transition.after.visible
+    # Reject the same reversal when either affected version enters the timeline.
+    for cutoff in (
+        datetime(2008, 1, 1, tzinfo=UTC),
+        datetime(2008, 3, 17, 4, 44, tzinfo=UTC),
+    ):
+        with pytest.raises(ValueError):
+            read_history(path, cutoff, END)
+
+
 def test_monthly_change_families_and_movement(history: History) -> None:
     cells = study_cells(BBOX, 6)
     counts = GeometryCounts()

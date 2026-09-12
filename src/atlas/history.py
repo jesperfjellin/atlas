@@ -245,8 +245,12 @@ def iter_histories(
                 nodes,
                 members,
             )
+            # Older timestamp reversals do not affect the latest pre-start state.
+            # Never allow one to reorder or replace an in-window version.
             if records and (
-                records[-1].number >= version.number or records[-1].timestamp > time
+                records[-1].number >= version.number
+                or records[-1].timestamp >= start
+                and records[-1].timestamp > time
             ):
                 raise ValueError(f"History is not ordered by version/time: {key}")
             if time < start:
