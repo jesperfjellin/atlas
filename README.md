@@ -16,15 +16,28 @@ docker compose run --rm atlas uv run --locked atlas --help
 ```
 
 The default command is `atlas doctor`.
-It prints runtime versions and GPU availability, then performs a small CPU tensor operation.
+It prints runtime versions and GPU availability, then checks a small CPU tensor operation and its gradient.
 The command returns a nonzero status if the runtime check fails.
-The image uses the CPU build of PyTorch. AMD acceleration remains deferred at Gate 0.
+The image uses the CPU build of PyTorch. AMD compatibility checks are in progress at Gate 0.
 GPU availability describes what this PyTorch installation can use.
 
 Compose mounts the repository at `/workspace` and keeps the container environment at `/opt/venv`.
 The service uses user and group IDs of 1000 by default.
 If your IDs differ, set `ATLAS_UID` and `ATLAS_GID` to the values from `id -u` and `id -g`.
 After a dependency change, run `docker compose build` again.
+
+## AMD compatibility check
+
+The optional check requires a ROCm build of PyTorch and access to an AMD GPU:
+
+```bash
+uv run atlas doctor --device rocm
+```
+
+The check prints the GPU name and checks the matrix result and gradient on that GPU.
+It returns a nonzero status if ROCm or the GPU is unavailable. It never falls back to CPU.
+The default CPU environment rejects this request.
+An AMD Compose configuration awaits a successful device check, as required by [Gate 0](SPEC.md#milestone-0--minimal-scaffold).
 
 ## Local development
 

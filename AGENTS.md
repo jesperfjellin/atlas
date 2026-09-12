@@ -78,7 +78,41 @@ uv run pre-commit run --all-files
 - Avoid broad `Any`, blanket suppressions, premature base classes, factories, and registries.
 - Add dependencies only when they directly simplify a current requirement.
 
-## Tests
+## Test policy
+
+Reserve automated tests for durable project logic where a regression could silently corrupt data, invalidate an ML result, or break a reused public contract.
+
+Prioritize tests for:
+
+- OSM temporal and spatial transformations;
+- change-counting semantics;
+- train/validation/test leakage rules;
+- dataset shapes and target alignment;
+- model forward/loss/checkpoint behavior;
+- regressions for bugs that have actually occurred.
+
+Do not normally add tests for:
+
+- diagnostic or `doctor` commands beyond one basic smoke test;
+- mocked GPU, ROCm, CUDA, driver, filesystem, or host capability detection;
+- exact CLI output or error-message wording;
+- one-off environment checks;
+- trivial branches, getters, configuration plumbing, or pass-through wrappers;
+- behavior owned by Python, PyTorch, or another dependency;
+- implementation details that are likely to change during the proof of concept.
+
+Verification is not synonymous with an automated test.
+Running a command manually and reporting its result is sufficient for environment-dependent behavior.
+
+Default test budget:
+
+- infrastructure, diagnostics, and glue changes: zero new tests unless fixing a regression;
+- small ordinary changes: at most one focused test;
+- core OSM or ML logic: as many tests as needed to protect the important invariants.
+
+Before exceeding the default budget, explain what realistic regression each additional test prevents.
+
+## Running tests
 
 - Use pytest.
 - Run the narrowest relevant test while developing:
@@ -87,7 +121,6 @@ uv run pre-commit run --all-files
 uv run pytest tests/path/to/test_file.py::test_name
 ```
 
-- Add tests for meaningful behavior, regressions, leakage rules, and OSM counting semantics.
 - Do not chase coverage percentage or test trivial implementation details.
 - Unit tests must not require network access, credentials, large downloads, or a GPU.
 - Keep slow, real-data, and accelerator checks opt-in.

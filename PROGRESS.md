@@ -15,6 +15,8 @@ A negative result remains a valid outcome.
 
 Milestone 0 is complete: the repository provides a runnable CPU scaffold for Python 3.14.
 The `atlas doctor` command works locally and through Docker Compose.
+The owner approved the optional RX 7900 XTX compatibility check at [Gate 0](SPEC.md#milestone-0--minimal-scaffold).
+GPU execution remains unverified.
 Data preparation and training remain unimplemented.
 The next implementation milestone is Milestone 1, subject to the owner's instruction after [Gate 0](SPEC.md#milestone-0--minimal-scaffold).
 
@@ -33,10 +35,11 @@ Spatial context, continual learning, live updates, and an inspection application
 
 ## Implemented capabilities
 
-- The installed `atlas` CLI reports runtime versions and GPU availability, then performs a small CPU tensor operation.
+- The installed `atlas` CLI reports runtime versions and GPU availability, then checks a small tensor operation and its gradient.
+- `atlas doctor --device rocm` requires AMD execution and rejects a non-ROCm build or an unavailable GPU. CPU remains the default.
 - `uv.lock` fixes the CPU PyTorch dependencies and the pytest, Ruff, `ty`, and pre-commit tools.
 - One Docker image and one Compose service support the CLI and development checks, with a separate container environment.
-- A smoke test exercises the installed CLI and its CPU tensor check.
+- One smoke test checks that the installed CLI runs on CPU. GPU execution requires a manual environment check.
 - The README provides startup commands, development checks, and OSM attribution and license information.
 
 These capabilities establish runtime readiness. They provide no evidence of predictive skill or useful learned representations.
@@ -65,8 +68,11 @@ The final reserved-test evaluation follows the frozen model choice.
 
 No technical blocker remains for Milestone 0.
 The CPU runtime works locally and through Compose.
-The CPU PyTorch build reports no accessible GPU. This result does not establish whether the machine supports AMD acceleration.
-At [Gate 0](SPEC.md#milestone-0--minimal-scaffold), the owner must decide whether to configure optional AMD acceleration now.
+The owner confirmed that `/dev/dxg` exists in the regular WSL terminal, but the agent sandbox cannot access this device.
+This restriction blocks the approved AMD device check. GPU calculations, gradients, and access through Compose remain unverified.
+The [PyTorch ROCm package index](https://download.pytorch.org/whl/rocm7.2/torch/) includes a Python 3.14 build of PyTorch 2.14.0.
+Package availability does not establish compatibility with the owner's Windows driver or prove GPU execution.
+An AMD Compose configuration awaits the successful device check required by [the runtime contract](SPEC.md#121-docker-compose).
 The CPU path is ready for the next milestone.
 
 The history source, usable years, geometry reconstruction, and Norway-wide resource requirements need evidence from the small data slice at Gate 1.

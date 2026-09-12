@@ -5,10 +5,11 @@ import platform
 import subprocess
 import sys
 from importlib.metadata import PackageNotFoundError, version
+from typing import Literal
 
 
-def doctor() -> None:
-    """Print runtime versions and check a small CPU tensor operation."""
+def doctor(device: Literal["cpu", "rocm"] = "cpu") -> None:
+    """Print runtime versions and check tensors and gradients on the chosen device."""
     import torch
 
     print(f"Python: {platform.python_version()}")
@@ -29,14 +30,41 @@ def doctor() -> None:
     print(f"CUDA/ROCm GPU available to PyTorch: {torch.cuda.is_available()}")
     print(f"MPS GPU available to PyTorch: {torch.backends.mps.is_available()}")
 
-    matrix = torch.tensor([[1.0, 2.0], [3.0, 4.0]], device="cpu")
+    if device == "rocm":
+        if torch.version.hip is None:
+            raise RuntimeError(
+                "ROCm was requested, but this PyTorch installation has no ROCm support."
+            )
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "ROCm was requested, but PyTorch cannot access an AMD GPU. "
+                "Check the host driver and GPU device access."
+            )
+        # PyTorch uses the CUDA device API for its ROCm backend as well.
+        tensor_device = torch.device("cuda:0")
+        print(f"GPU: {torch.cuda.get_device_name(tensor_device)}")
+    else:
+        tensor_device = torch.device("cpu")
+
+    label = device.upper()
+    matrix = torch.tensor(
+        [[1.0, 2.0], [3.0, 4.0]], device=tensor_device, requires_grad=True
+    )
     result = matrix @ matrix
-    expected = torch.tensor([[7.0, 10.0], [15.0, 22.0]], device="cpu")
+    expected = torch.tensor([[7.0, 10.0], [15.0, 22.0]], device=tensor_device)
     if not torch.equal(result, expected):
         raise RuntimeError(
-            f"CPU tensor operation returned an unexpected result: {result}"
+            f"{label} tensor operation returned an unexpected result: {result}"
         )
-    print("CPU tensor check: passed")
+    print(f"{label} tensor check: passed")
+
+    result.sum().backward()
+    expected_gradient = torch.tensor([[7.0, 11.0], [9.0, 13.0]], device=tensor_device)
+    if matrix.grad is None or not torch.equal(matrix.grad, expected_gradient):
+        raise RuntimeError(
+            f"{label} gradient calculation returned an unexpected result: {matrix.grad}"
+        )
+    print(f"{label} gradient check: passed")
 
 
 def main() -> int:
@@ -45,10 +73,18 @@ def main() -> int:
         prog="atlas", description="Learn from changes in OpenStreetMap."
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("doctor", help="Show runtime versions and check CPU tensors.")
-    parser.parse_args()
+    doctor_parser = commands.add_parser(
+        "doctor", help="Show runtime versions and check tensors and gradients."
+    )
+    doctor_parser.add_argument(
+        "--device",
+        choices=("cpu", "rocm"),
+        default="cpu",
+        help="Device to check (default: cpu). ROCm requires an accessible AMD GPU.",
+    )
+    args = parser.parse_args()
     try:
-        doctor()
+        doctor(args.device)
     except (ImportError, OSError, RuntimeError, subprocess.SubprocessError) as error:
         print(f"atlas doctor failed: {error}", file=sys.stderr)
         return 1
