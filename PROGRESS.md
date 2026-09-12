@@ -18,7 +18,7 @@ The scaffold uses Python 3.14 and requires the AMD GPU through the main Compose 
 The RX 7900 XTX passed tensor and gradient checks in this service.
 A synthetic GRU forward pass, backward pass, and optimizer step also passed on this GPU.
 Milestone 1 is implemented and demonstrated on the supplied Norway history file. Training remains unimplemented.
-The next step is the [Gate 1](SPEC.md#milestone-1--real-historical-data-vertical-slice) decision before a Norway corpus build.
+Gate 1 and the full Norway build are approved. Milestone 2 is in progress.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 This domain and period must not enter the reserved test partition.
 
@@ -46,7 +46,11 @@ Spatial context, continual learning, live updates, and an inspection application
 - `atlas build-dataset --config` reads a bounded history extract and writes monthly Parquet rows for a fixed H3 cell set.
 - Historical reference lookup reconstructs nodes, ways, and complete simple multipolygons at each relevant time.
 - Raw edits, semantic additions/removals, mapped state, and net state change remain separate, including child-induced geometry movement.
-- Five synthetic tests protect change counting, historical geometry, month boundaries, missing geometry, and Parquet availability semantics.
+- Synthetic tests protect change counting, historical geometry, month boundaries, missing geometry, and Parquet availability semantics.
+- A bounded corpus builder streams entities and stores compact node/way reference arrays. Shared references supply geometry without duplicate feature contributions.
+- Completed batches survive interruption. A real development restart preserved 22 completed batches and reproduced the original 2023 features.
+- `configs/split.yaml` fixes the domain, temporal partitions, geographic holdouts, neighbouring-cell buffers, and Kristiansand exclusion before new target summaries.
+- A PyTorch dataset supplies 24-month inputs, six-month change targets, calendar encodings, and availability masks. Synthetic checks protect alignment and training-only input scaling.
 - The README provides extraction, build, development, and attribution instructions, along with the small taxonomy and geometry limits.
 
 These capabilities establish runtime and input-preparation readiness. They provide no evidence of predictive skill or useful learned representations.
@@ -94,6 +98,17 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
+Milestone 2 still needs the completed Norway build, real GPU batch acceptance, development target summaries, and Gate 2 decisions.
+The fixed Natural Earth land boundary contains 14,446 H3 resolution-6 cells across mainland Norway, Svalbard, and Jan Mayen.
+Geographic groups contain 11,469 training cells, 980 validation cells, 1,002 reserved-test cells, and 995 buffer cells.
+The loader excludes the previously inspected Kristiansand cells from reserved temporal testing as well.
+
+The bounded 2023 pilot matched all 156 original rows and 51 features, taking 103 seconds with 1,032 MiB peak memory and 95 MiB of intermediate/output files.
+The 2015–2025 development pilot produced 1,716 rows and used 128 MiB of files. Its peak before interruption was 1,879 MiB.
+Its resumed build preserved completed partitions and again matched every 2023 feature against the original builder.
+These measurements support a full Norway attempt within the roughly 15.2 GiB Docker memory limit and 48 GiB of available repository storage.
+Actual Norway resource use must still be checked as the run progresses.
+
 Docker Desktop can pass `/dev/dxg` into the container. The agent process does not need direct access to this device.
 The main Compose service passed GPU runtime checks with Adrenalin 26.8.1, PyTorch 2.14.0, and ROCm 7.2.
 The image includes the C++ headers that MIOpen needs to compile GRU kernels at runtime.
@@ -109,8 +124,8 @@ The file lacks a replication timestamp header, so source coverage remains an exp
 The small taxonomy and primary-cell implementation are documented in the README and follow [Section 7](SPEC.md#7-exact-meaning-of-change).
 Incomplete relations, nested relation members, nested same-role rings, and invalid geometries are omitted under the specified subset semantics.
 
-The current in-memory reader must not receive the full 2.1 GiB Norway file.
+The Milestone 1 in-memory reader must not receive the full 2.1 GiB Norway file.
 A rough linear estimate from compressed size suggests hundreds of GiB of memory and several hours per year for an unpartitioned build.
 This estimate is coarse: geometry complexity and compression vary by region, and extraction adds references outside the requested area.
-The measured small build fits the Docker daemon's roughly 15.2 GiB memory limit. Norway processing needs bounded geographic chunks in Milestone 2.
-Before a Norway run, approve that milestone and create its temporal/geographic split without inspecting reserved-test targets.
+The corpus builder instead streams bounded entity batches and resolves complete historical references from local array files.
+This avoids the boundary omissions that simple geographic cuts could introduce under the primary-cell rule.

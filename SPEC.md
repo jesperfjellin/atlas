@@ -651,4 +651,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Implement Milestone 1 only. Keep the existing `atlas` package name. Use a small development extract from the supplied Norway history file. Verify historical geometry and the three change families before proposing a Norway-wide build. Do not implement later milestones or supporting frameworks.
+> Implement Milestone 2 through Gate 2. Gate 1 and the full Norway build are approved. Use complete months from 2015 through 2025, with training targets in 2017–2022, validation in 2023–2024, and reserved temporal testing in 2025. Preserve the Kristiansand development exclusion. Complete the Norway corpus, PyTorch loader, leakage checks, and GPU batch acceptance before freezing Gate 2 decisions. Do not implement baselines, neural training, or supporting frameworks.

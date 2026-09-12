@@ -1,0 +1,11 @@
+purpose = "corpus"
+history = "../data/raw/norway-internal.osh.pbf"
+output = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+# Supplied full history predates 2015 and extends through August 2026.
+# Coverage is an explicit declaration: the PBF has no replication timestamp.
+coverage_start = "2008-01-01"
+coverage_end = "2026-08-01"
+node_batch_size = 250000
+way_batch_size = 10000
+relation_batch_size = 250

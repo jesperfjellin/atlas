@@ -1,7 +1,7 @@
 # Atlas
 
 Atlas is a small experiment that learns from changes in OpenStreetMap in Norway.
-Atlas builds monthly OSM features from a small historical extract and provides the AMD GPU runtime for the later ML experiment.
+Atlas builds monthly OSM features in bounded batches and provides the AMD GPU runtime for the ML experiment.
 The [specification](SPEC.md) defines the experiment. [PROGRESS.md](PROGRESS.md) tracks its capabilities and remaining work.
 
 ## Run with Docker Compose
@@ -53,6 +53,42 @@ docker compose run --rm atlas uv run pre-commit run --all-files
 ```
 
 ## OSM data
+
+### Build the Norway corpus
+
+Milestone 2 uses [configs/norway.toml](configs/norway.toml) and the fixed [split](configs/split.yaml).
+The supplied full-history file must be at `data/raw/norway-internal.osh.pbf`.
+
+```bash
+docker compose run --rm atlas uv run --locked atlas build-dataset \
+  --config configs/norway.toml
+```
+
+The same command resumes an interrupted build. Completed entity batches remain usable.
+Node and way reference histories use ordinary NumPy files. Each entity contributes features once; shared references supply geometry only.
+This preserves entities that cross processing boundaries without clipping their geometry or duplicating counts.
+Monthly states reuse geometry between edits, including edits to referenced children. Net changes still come from independently reconstructed boundary states.
+The two geometry counters count opening snapshots and paired transitions; cached monthly snapshots do not add assignment attempts.
+
+The output contains monthly Parquet files, interpretation metadata, completed batch arrays, and compact reference arrays.
+Do not change the source file or build configuration while a build is in progress.
+The corpus includes every fixed cell in every complete month, including empty cells and geographic buffers.
+
+The checked-in boundary comes from [Natural Earth 1:10m Admin 0 Countries](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/).
+It covers mainland Norway, Svalbard, and Jan Mayen. Bouvet Island is outside the supplied history extract and is excluded.
+This approximate land boundary defines the experiment domain only. It supplies no predictive features.
+H3 resolution 6 gives 14,446 study cells. Coastal cells follow this fixed boundary rather than detailed cadastral coastlines.
+
+The split uses training targets in 2017–2022, validation in 2023–2024, and reserved temporal testing in 2025.
+H3 parent groups also provide geographic validation and testing. Their cells are excluded from training at all dates.
+Cells adjacent to another geographic group are buffers and cannot enter samples. Kristiansand development cells cannot enter reserved testing.
+Use temporal and geographic evaluation separately; neither distribution is resampled.
+
+[samples.py](src/atlas/samples.py) provides `CellMonths.read`, `Preprocessing.fit`, and `WindowDataset` for PyTorch's `DataLoader`.
+Each sample has 24 input months and six following target months, all within one target partition.
+Inputs contain 51 features, two calendar encodings, and 51 availability indicators. Targets contain the 37 change features and their masks.
+Input scaling fits signed-log values from unique training input cell-months only. Losses and primary metrics remain subject to Gate 2.
+Dataset loading performs structural checks without printing reserved-test target summaries.
 
 ### Build the development slice
 

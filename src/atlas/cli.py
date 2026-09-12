@@ -70,7 +70,7 @@ def main() -> int:
     )
     builder = commands.add_parser(
         "build-dataset",
-        help="Build monthly features from a development history extract.",
+        help="Build monthly features from OSM history.",
     )
     builder.add_argument("--config", required=True, type=Path)
     args = parser.parse_args()

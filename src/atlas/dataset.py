@@ -88,6 +88,13 @@ def read_config(path: Path) -> BuildConfig:
 
 def build_dataset(config_path: Path) -> None:
     """Write one row per fixed cell/month and print the small build summary."""
+    with config_path.open("rb") as stream:
+        purpose = tomllib.load(stream).get("purpose")
+    if purpose == "corpus":
+        from atlas.corpus import build_corpus
+
+        build_corpus(config_path)
+        return
     started = time.perf_counter()
     config = read_config(config_path)
     cells = study_cells(config.bbox, config.h3_resolution)

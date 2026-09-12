@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import h3
+import numpy as np
 import osmium
 import osmium.io
 import pyarrow.parquet as pq
@@ -11,6 +12,7 @@ import pytest
 from osmium.osm import Box, Location
 from shapely.geometry import Point, Polygon
 
+from atlas.accumulate import Accumulator
 from atlas.dataset import build_dataset
 from atlas.features import (
     FEATURE_NAMES,
@@ -21,6 +23,7 @@ from atlas.features import (
     study_cells,
 )
 from atlas.history import History, read_history
+from atlas.references import References, save_references
 
 START = datetime(2023, 1, 1, tzinfo=UTC)
 END = datetime(2023, 4, 1, tzinfo=UTC)
@@ -179,3 +182,53 @@ coverage_end = 2023-04-01T00:00:00Z
     assert march.column("month").to_pylist() == [
         datetime(2023, 3, 1, tzinfo=UTC)
     ] * len(cells)
+
+
+def test_bounded_reference_batches_equal_independent_monthly_snapshots(
+    history: History, tmp_path: Path
+) -> None:
+    cells = study_cells(BBOX, 6)
+    months = tuple(calendar_months(START, END))
+    node_keys = sorted(k for k in history.versions if k[0] == "n")
+    midpoint = len(node_keys) // 2
+    for keys in (node_keys[:midpoint], node_keys[midpoint:]):
+        save_references(tmp_path, "n", {k: history.versions[k] for k in keys})
+    ways = {k: v for k, v in history.versions.items() if k[0] == "w"}
+    save_references(tmp_path, "w", ways)
+    nodes_on_disk, ways_on_disk = References(tmp_path, "n"), References(tmp_path, "w")
+    actual = {cell: np.zeros((3, len(FEATURE_NAMES))) for cell in cells}
+    # Deliberately split roots one by one, with shared references in other files.
+    for key, records in history.versions.items():
+        versions = {key: records}
+        if key[0] == "r":
+            versions.update(
+                ways_on_disk.load(
+                    {ref for v in records for kind, ref, _ in v.members if kind == "w"}
+                )
+            )
+        if key[0] != "n":
+            versions.update(
+                nodes_on_disk.load(
+                    {
+                        ref
+                        for records in versions.values()
+                        for v in records
+                        for ref in v.nodes
+                    }
+                )
+            )
+        accumulator = Accumulator(cells, months, END, 6)
+        accumulator.add(History(versions), {key})
+        names, values = accumulator.finish()
+        for index, cell in enumerate(names):
+            actual[cell] += values[index]
+    expected = list(
+        build_months(history, cells, START, END, 6, START, END, GeometryCounts())
+    )
+    for cell in cells:
+        np.testing.assert_allclose(
+            actual[cell],
+            [[month.cells[cell][name] for name in FEATURE_NAMES] for month in expected],
+            atol=1e-7,
+            rtol=1e-10,
+        )

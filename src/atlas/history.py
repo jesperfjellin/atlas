@@ -5,10 +5,11 @@ from collections import defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from itertools import pairwise
+from itertools import groupby, pairwise
 from pathlib import Path
 
 import osmium
+import osmium.osm
 from osmium.osm import Node, Relation, Way
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.geometry.base import BaseGeometry
@@ -185,44 +186,72 @@ def read_history(path: Path, start: datetime, end: datetime) -> History:
     """Keep the last pre-start version and in-window versions, without user data."""
     if path.stat().st_size > 256 * 1024**2:
         raise ValueError("Milestone 1 requires an extract smaller than 256 MiB.")
-    processor = osmium.FileProcessor(path)
+    return History(dict(iter_histories(path, start, end)))
+
+
+def iter_histories(
+    path: Path,
+    start: datetime,
+    end: datetime,
+    kind: str | None = None,
+    *,
+    after_id: int = -1,
+) -> Iterator[tuple[Key, list[Version]]]:
+    """Stream one entity at a time from a type/ID/version-sorted history file."""
+    entities = {
+        None: osmium.osm.ALL,
+        "n": osmium.osm.NODE,
+        "w": osmium.osm.WAY,
+        "r": osmium.osm.RELATION,
+    }[kind]
+    processor = osmium.FileProcessor(path, entities=entities)
     if not processor.header.has_multiple_object_versions:
         raise ValueError("Expected a full-history file, not an OSM snapshot.")
-    versions: dict[Key, list[Version]] = {}
-    for obj in processor:
-        if not isinstance(obj, Node | Way | Relation):
-            raise ValueError("Expected only nodes, ways and relations in OSM history.")
-        time = obj.timestamp.astimezone(UTC)
-        if time >= end:
+    previous_key = (-1, -1)
+    for key, objects in groupby(processor, key=lambda obj: (obj.type_str(), obj.id)):
+        ordered_key = ("nwr".index(key[0]), key[1])
+        if ordered_key <= previous_key:
+            raise ValueError("History must be sorted by entity type and ID.")
+        previous_key = ordered_key
+        if key[1] <= after_id:
             continue
-        if obj.version < 1 or time.year < 2000:
-            raise ValueError("OSM history requires version numbers and timestamps.")
-        location = None
-        nodes = ()
-        members = ()
-        if isinstance(obj, Node) and obj.visible and obj.location.valid():
-            location = (obj.location.lon, obj.location.lat)
-        elif isinstance(obj, Way):
-            nodes = tuple(node.ref for node in obj.nodes)
-        elif isinstance(obj, Relation):
-            members = tuple((m.type, m.ref, m.role) for m in obj.members)
-        version = Version(
-            (obj.type_str(), obj.id),
-            obj.version,
-            time,
-            obj.visible,
-            dict(obj.tags),
-            location,
-            nodes,
-            members,
-        )
-        records = versions.setdefault(version.key, [])
-        if records and (
-            records[-1].number >= version.number or records[-1].timestamp > time
-        ):
-            raise ValueError(f"History is not ordered by version/time: {version.key}")
-        if time < start:
-            records[:] = [version]
-        else:
-            records.append(version)
-    return History(versions)
+        records: list[Version] = []
+        for obj in objects:
+            if not isinstance(obj, Node | Way | Relation):
+                raise ValueError(
+                    "Expected only nodes, ways and relations in OSM history."
+                )
+            time = obj.timestamp.astimezone(UTC)
+            if time >= end:
+                continue
+            if obj.version < 1 or time.year < 2000:
+                raise ValueError("OSM history requires version numbers and timestamps.")
+            location = None
+            nodes = ()
+            members = ()
+            if isinstance(obj, Node) and obj.visible and obj.location.valid():
+                location = (obj.location.lon, obj.location.lat)
+            elif isinstance(obj, Way):
+                nodes = tuple(node.ref for node in obj.nodes)
+            elif isinstance(obj, Relation):
+                members = tuple((m.type, m.ref, m.role) for m in obj.members)
+            version = Version(
+                key,
+                obj.version,
+                time,
+                obj.visible,
+                dict(obj.tags),
+                location,
+                nodes,
+                members,
+            )
+            if records and (
+                records[-1].number >= version.number or records[-1].timestamp > time
+            ):
+                raise ValueError(f"History is not ordered by version/time: {key}")
+            if time < start:
+                records[:] = [version]
+            else:
+                records.append(version)
+        if records:
+            yield key, records

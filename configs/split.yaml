@@ -1,0 +1,58 @@
+# Fixed before inspecting Milestone 2 target distributions. Dates are UTC [start, end).
+# Holdout cells are excluded from training at all dates. Boundary neighbours are buffers.
+# Kristiansand development cells are never eligible for reserved testing.
+boundary: norway.geojson
+boundary_source: https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/
+h3_resolution: 6
+start: '2015-01-01'
+end: '2026-01-01'
+input_months: 24
+target_months: 6
+temporal:
+  train:
+  - '2017-01-01'
+  - '2023-01-01'
+  validation:
+  - '2023-01-01'
+  - '2025-01-01'
+  test:
+  - '2025-01-01'
+  - '2026-01-01'
+geographic:
+  parent_resolution: 3
+  seed: 20260912
+  buffer_rings: 1
+  validation_parents:
+  - 830001fffffffff
+  - 830705fffffffff
+  - 830800fffffffff
+  - 83081dfffffffff
+  - 830836fffffffff
+  - 8308edfffffffff
+  - 830958fffffffff
+  - 830981fffffffff
+  - 830983fffffffff
+  test_parents:
+  - 830005fffffffff
+  - 830120fffffffff
+  - 830125fffffffff
+  - 830130fffffffff
+  - 830150fffffffff
+  - 830812fffffffff
+  - 830814fffffffff
+  - 830816fffffffff
+  - 8308a0fffffffff
+  development_cells:
+  - 86099e807ffffff
+  - 86099e80fffffff
+  - 86099e817ffffff
+  - 86099e81fffffff
+  - 86099e827ffffff
+  - 86099e82fffffff
+  - 86099e837ffffff
+  - 86099e8a7ffffff
+  - 86099e8b7ffffff
+  - 86099e957ffffff
+  - 86099e987ffffff
+  - 86099e98fffffff
+  - 86099e99fffffff
