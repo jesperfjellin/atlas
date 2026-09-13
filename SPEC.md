@@ -709,11 +709,12 @@ Keep those targets closed until the neural configuration is frozen; do not retun
 
 ### Milestone 4 — First temporal learner
 
-The approved next work is the bounded [baseline-and-diagnosis campaign](PROGRESS.md#baseline-and-diagnosis-campaign).
-It adds transformed recent means, full-data ridge and PCA/ridge, and state/summary controls derived only from the existing permitted inputs.
-Earlier temporal folds within the original training partition are approved for selection and diagnosis, with independently fitted training-only preprocessing.
+The bounded [baseline-and-diagnosis campaign](PROGRESS.md#baseline-and-diagnosis-campaign) is complete.
+`atlas diagnose-baselines --config configs/diagnosis.toml` compares transformed recent means, full-data ridge and PCA/ridge, and state/summary controls derived only from the existing permitted inputs.
+It uses earlier temporal folds within the original training partition for selection and diagnosis, with independently fitted training-only preprocessing.
 These supplementary comparisons preserve the primary split, corpus, targets, scoring, and Gate 3 reference and threshold.
-The campaign ends with measured comparisons and a recommendation for one next experiment; it does not authorize new losses, spatial inputs, or reserved-test evaluation.
+The campaign ends with measured comparisons and a recommended nonlinear history comparison, which needs the next scope decision.
+It does not authorize follow-up training, new losses, spatial inputs, or reserved-test evaluation.
 
 Deliver:
 
@@ -774,4 +775,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 is approved and in progress. Complete the bounded baseline-and-diagnosis campaign in PROGRESS.md, then recommend one next experiment. Preserve the frozen primary experiment and fit each earlier fold's preprocessing on its own training data only. Keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 remains in progress. The baseline-and-diagnosis campaign is complete; the recommended next model experiment in PROGRESS.md requires an owner scope decision before implementation. Preserve the frozen primary experiment and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.

@@ -84,6 +84,10 @@ def main() -> int:
         "explore-embeddings", help="Compare development embeddings with PCA."
     )
     embeddings.add_argument("--run", required=True, type=Path)
+    diagnosis = commands.add_parser(
+        "diagnose-baselines", help="Run the approved development baseline comparison."
+    )
+    diagnosis.add_argument("--config", required=True, type=Path)
     args = parser.parse_args()
     try:
         if args.command == "doctor":
@@ -100,6 +104,10 @@ def main() -> int:
             from atlas.training import train
 
             train(args.config, args.resume)
+        elif args.command == "diagnose-baselines":
+            from atlas.diagnosis import run_diagnosis
+
+            run_diagnosis(args.config)
         else:
             from atlas.embeddings import explore_embeddings
 

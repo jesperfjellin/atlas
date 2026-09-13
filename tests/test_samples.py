@@ -133,3 +133,92 @@ def test_baseline_batches_rates_and_labels_obey_the_same_cutoff(
     corpus.values[0, 24:] = 1e8
     corpus.values[2:] = -1e8
     torch.testing.assert_close(recent_rate(dataset, 6, device)[0], rates[0])
+
+
+def test_historical_folds_refit_only_their_own_unique_training_inputs(
+    corpus: CellMonths,
+) -> None:
+    from atlas.linear import historical_split
+
+    for year in (2020, 2021, 2022):
+        split = historical_split(corpus.split, year)
+        fold = CellMonths(split, corpus.values.copy(), corpus.available.copy())
+        preprocessing = Preprocessing.fit(fold)
+        training = WindowDataset(fold, preprocessing, "train")
+        validation = WindowDataset(fold, preprocessing, "validation")
+        assert split.groups == corpus.split.groups
+        assert validation.positions == training.positions == [0, 1]
+        assert len(validation.starts) == 7
+        assert all(split.months[s + 5].year < year for s in training.starts)
+        assert all(
+            split.months[s].year == split.months[s + 5].year == year
+            for s in validation.starts
+        )
+        last_input = training.starts[-1] - 1
+        assert (split.months[last_input].year, split.months[last_input].month) == (
+            year - 1,
+            6,
+        )
+        fold.values[2:] = 5e10
+        fold.values[:2, last_input + 1 :] = -5e10
+        after = Preprocessing.fit(fold)
+        np.testing.assert_array_equal(after.mean, preprocessing.mean)
+        np.testing.assert_array_equal(after.scale, preprocessing.scale)
+        # Each month contributes once, even though it appears in many windows.
+        raw = corpus.values[:2, : last_input + 1, 1]
+        np.testing.assert_allclose(
+            preprocessing.mean[1], np.log1p(raw).mean(), rtol=1e-6
+        )
+    from atlas.diagnosis import score_breakdown
+
+    validation = WindowDataset(corpus, preprocessing, "validation")
+    scores = score_breakdown(validation, torch.zeros((len(validation), 6, 37)), None)
+    for horizon in range(6):
+        # Cross-year windows contribute each forecast to its actual target year.
+        for year, months in ((2023, 12 - horizon), (2024, 7 + horizon)):
+            targets = scores[f"year/{year}"]["targets"]
+            assert isinstance(targets, dict)
+            assert targets["edit_create"][horizon]["observed"] == 2 * months
+
+
+def test_activity_controls_preserve_cutoffs_signs_and_observed_denominators(
+    corpus: CellMonths,
+) -> None:
+    from atlas.linear import (
+        FINAL_COLUMNS,
+        ORDERED_SIZE,
+        control_inputs,
+        history_summaries,
+        target_groups,
+    )
+
+    values = torch.zeros((1, 24, 37), dtype=torch.float64)
+    available = torch.ones_like(values, dtype=torch.bool)
+    values[0, -3:, 0] = torch.tensor([0.5, 1.0, -3.0])
+    available[0, -6:-3, 0] = False
+    available[0, -6:, 1] = False
+    parts = history_summaries(values, available)
+    torch.testing.assert_close(
+        parts[0, 0], torch.tensor((np.log1p(0.5) + np.log(2) - np.log(4)) / 3)
+    )
+    assert parts[0, 37] == 2 / 3 and parts[0, 74] == 0.5
+    assert parts[0, 1] == parts[0, 38] == parts[0, 75] == 0
+    assert parts[0, 111 + 37] == 2 / 21
+    preprocessing = Preprocessing(
+        np.zeros(51, dtype=np.float32), np.ones(51, dtype=np.float32)
+    )
+    dataset = WindowDataset(corpus, preprocessing, "train")
+    _, mask = dataset.target_batch(np.arange(len(dataset)))
+    mask = mask.reshape(len(dataset), -1)
+    groups = target_groups(dataset)
+    assert sorted(c for columns, _ in groups for c in columns) == list(range(222))
+    for columns, rows in groups:
+        for column in columns:
+            np.testing.assert_array_equal(rows, np.flatnonzero(mask[:, column]))
+    before = control_inputs(dataset, np.array([0]), values.device)
+    assert len(FINAL_COLUMNS) == 30
+    assert before.shape == (1, ORDERED_SIZE + 222)
+    corpus.values[0, 24:] = 1e9
+    torch.testing.assert_close(
+        control_inputs(dataset, np.array([0]), values.device), before
+    )

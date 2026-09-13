@@ -1,0 +1,12 @@
+dataset = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
+output = "../runs/diagnosis-norway"
+tree_run = "../runs/baselines-norway-opencl"
+gru_runs = ["../runs/gru-norway-64-seed20260913", "../runs/gru-norway-64-regularized-seed20260913"]
+
+# Fixed before any campaign fit. Selection averages the three earlier-fold RMSEs.
+ridge_strengths = [0.001, 0.01, 0.1, 1.0, 10.0]
+validation_years = [2020, 2021, 2022]
+pca_dimensions = 64
+batch_size = 4096
