@@ -9,16 +9,18 @@ ADD --chmod=644 https://repo.radeon.com/rocm/rocm.gpg.key /etc/apt/keyrings/rocm
 RUN echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.asc] https://repo.radeon.com/rocm/apt/7.2 jammy main' > /etc/apt/sources.list.d/rocm.list \
     && printf 'Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600\n' > /etc/apt/preferences.d/rocm \
     && apt-get update \
-    && apt-get install -y --no-install-recommends g++ hip-dev rccl-dev \
-        hipcc=1.1.1.70200-43~22.04 rocm-device-libs=1.0.0.70200-43~22.04 \
+    && apt-get install -y --no-install-recommends g++ libboost-filesystem-dev \
+        libboost-system-dev ocl-icd-opencl-dev rocm-opencl-runtime \
     && rm -rf /var/lib/apt/lists/*
 
 ADD https://github.com/ROCm/librocdxg/releases/download/v1.2.0/rocdxg-roct_1.2.0_amd64.deb /tmp/rocdxg.deb
 # MIOpen compiles GRU kernels at runtime and needs C++ headers.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git libatomic1 libstdc++-12-dev libxml2 osmium-tool roctracer \
+    && apt-get install -y --no-install-recommends git libatomic1 libstdc++-12-dev libxml2 osmium-tool \
     && dpkg -i /tmp/rocdxg.deb \
     && rm -rf /var/lib/apt/lists/* /tmp/rocdxg.deb \
+    && groupadd --gid "$ATLAS_GID" atlas \
+    && useradd --uid "$ATLAS_UID" --gid "$ATLAS_GID" --create-home atlas \
     && mkdir -p /opt/venv /tmp/uv-cache \
     && chown "$ATLAS_UID:$ATLAS_GID" /opt/venv /tmp/uv-cache
 

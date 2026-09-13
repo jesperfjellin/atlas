@@ -58,7 +58,8 @@ Spatial context, continual learning, live updates, and an inspection application
 - The frozen scorer preserves target masks, tied occurrence scores, and equal weights for target families and forecast months.
 - `atlas train-baselines --config` compares zero change, a six-month recent rate, and separate LightGBM models for all 222 target/horizon outputs.
 - LightGBM bins flattened inputs in batches and reuses those bins. Completed models survive interruption. Training and forecast execution use the Radeon GPU.
-- A Norway training pilot passed binning, binary reload, fitting, checkpoint saving, and GPU prediction for 4,288 samples with 2,496 flattened input values each.
+- Five OpenCL acceptance fits used all 768,423 training samples. Repeated rare-count forecasts, signed net changes, and raw edits passed checkpoint bounds and prediction-loss agreement.
+- A small checkpoint check rejects tree updates outside the bounds permitted by the squared loss and observed training labels.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 These capabilities establish runtime, input preparation, and baseline execution. They provide no evidence of predictive skill or useful learned representations yet.
@@ -87,7 +88,11 @@ Scores use the frozen signed-log RMSE and occurrence average precision:
 | Geographic | Recent rate | 1.219025 | 0.183421 |
 
 Recent activity improves occurrence ranking, but its arithmetic rate forecasts have larger magnitude errors than zero change.
-The boosted-tree comparison is incomplete. The first full training model has passed GPU fitting and validation.
+The full 222-model tree run completed, but its checkpoints failed a training-correctness check. Its tree scores are invalid for comparison.
+For example, the first building-removal tree contains leaf values from -26.46 to 79.37; the loss and training labels permit only 0.0121 to 0.4429.
+The GPU evaluator reproduces LightGBM's native checkpoint predictions, so the error is already present in the fitted model.
+Fresh single-round fits also reproduce the fault in the native ROCm trainer.
+The main command now uses LightGBM's OpenCL GPU trainer. Its full-data acceptance fits pass; a valid complete comparison remains outstanding.
 No neural-model results or embedding comparisons are available.
 
 The first comparison needs validation results against the strongest implemented baseline and a linear probe against dimension-matched PCA.
@@ -178,14 +183,15 @@ Manual development examples matched the intended semantics:
 ## Blockers and next decisions
 
 [Milestone 3](SPEC.md#milestone-3--baselines) is approved.
-GPU baseline acceptance has passed. The full Norway boosted-tree comparison is incomplete; metrics and completed models are in `runs/baselines-norway/`.
+The OpenCL GPU training path has passed five full-data acceptance fits, including the previously failing targets. The complete rerun remains outstanding.
+Its configuration writes to `runs/baselines-norway-opencl/`.
+The invalid native-ROCm tree models and scores in `runs/baselines-norway/` must not be used as a benchmark.
+The zero-change and recent-rate scores remain valid. No Gate 3 threshold has been frozen.
 The milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
 
-The LightGBM command loads Torch's ROCm runtime first and enforces synchronous HIP launches.
-These settings avoid observed kernel-loading failures and unstable synthetic learning on this WSL setup.
-They apply to the baseline command; PyTorch's normal execution settings remain available for the later neural experiment.
-LightGBM's GPU reference loaders also require a dense validation matrix to initialize metrics correctly.
-Training retains its batched input loader and cached bins; the validation matrix needs about 2 GiB of temporary host memory.
+The native ROCm tree trainer produced invalid squared-loss updates on this machine, including with serialization, one host thread, and double precision.
+The main command uses OpenCL with double-precision histograms and makes Torch's WSL HSA runtime symbols globally visible to the driver.
+Both training and validation use batched input loading and cached bins. The dense validation workaround and synchronous HIP setting are no longer needed.
 
 GPU runtime and batch acceptance establish readiness for training, but not its speed, stability, or predictive value.
 Geometry omissions and the approximate study boundary remain limitations of the fixed experiment, as described in the specification.

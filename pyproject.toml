@@ -37,14 +37,7 @@ triton-rocm = { index = "pytorch-rocm" }
 no-binary-package = ["lightgbm"]
 
 [tool.uv.config-settings-package.lightgbm]
-"cmake.define.USE_ROCM" = "ON"
-"cmake.define.CMAKE_HIP_ARCHITECTURES" = "gfx1100"
-"cmake.define.CMAKE_HIP_COMPILER" = "/opt/rocm/llvm/bin/clang++"
-"cmake.define.CMAKE_HIP_COMPILER_ROCM_ROOT" = "/opt/rocm"
-"cmake.define.CMAKE_HIP_FLAGS" = "--rocm-path=/opt/rocm"
-"cmake.define.HIP_DIR" = "/opt/rocm/lib/cmake/hip"
-"cmake.define.CMAKE_CXX_COMPILER" = "/opt/rocm/llvm/bin/clang++"
-"cmake.define.CMAKE_PREFIX_PATH" = "/opt/rocm"
+"cmake.define.USE_GPU" = "ON"
 "build.tool-args" = "-j4"
 
 [tool.ruff]

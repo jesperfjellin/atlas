@@ -1,12 +1,52 @@
 """Bounded LightGBM input loading and numeric regression trees on PyTorch."""
 
+import lightgbm as lgb
 import numpy as np
 import torch
 
-# Loading LightGBM first selects the compiler SDK's older HIP runtime.
-import lightgbm as lgb  # isort: skip
-
 from atlas.samples import WindowDataset
+
+
+def check_l2_updates(
+    model_text: str, training_target: np.ndarray, learning_rate: float
+) -> None:
+    """Reject impossible updates from the observed GPU tree-training failure.
+
+    For squared loss, each leaf fits a mean residual; nonnegative L2
+    regularization can only shrink that update toward zero. Track conservative
+    prediction bounds across trees, including the initial training mean.
+    Targets must be the observed, transformed training labels.
+    """
+    if not len(training_target):
+        raise ValueError("L2 checkpoint validation needs observed training labels.")
+    minimum, maximum = float(training_target.min()), float(training_target.max())
+    initial = float(training_target.mean(dtype=np.float64))
+    prediction_min = prediction_max = initial
+    leaves = [
+        line[11:] for line in model_text.splitlines() if line.startswith("leaf_value=")
+    ]
+    if not leaves:
+        raise ValueError("No tree leaves in checkpoint.")
+    for index, values in enumerate(leaves):
+        updates = np.fromstring(values, sep=" ")
+        lower = learning_rate * min(0.0, minimum - prediction_max)
+        upper = learning_rate * max(0.0, maximum - prediction_min)
+        if index == 0:
+            lower += initial
+            upper += initial
+        tolerance = 1e-5 * max(1.0, abs(lower), abs(upper))
+        if (
+            not len(updates)
+            or not np.isfinite(updates).all()
+            or (updates < lower - tolerance).any()
+            or (updates > upper + tolerance).any()
+        ):
+            raise ValueError(f"Tree {index + 1} violates the L2 update bounds.")
+        if index == 0:
+            prediction_min, prediction_max = float(updates.min()), float(updates.max())
+        else:
+            prediction_min += float(updates.min())
+            prediction_max += float(updates.max())
 
 
 class InputSequence(lgb.Sequence):

@@ -1,7 +1,7 @@
 dataset = "../data/derived/norway-2015-2025"
 split = "split.yaml"
 preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
-output = "../runs/baselines-norway"
+output = "../runs/baselines-norway-opencl"
 recent_months = 6
 rounds = 256
 early_stopping_rounds = 32

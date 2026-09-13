@@ -1,8 +1,25 @@
 """Protect saved tree branch semantics and prediction sums."""
 
+import numpy as np
+import pytest
 import torch
 
-from atlas.trees import RegressionTrees
+from atlas.trees import RegressionTrees, check_l2_updates
+
+
+def test_l2_checkpoint_rejects_impossible_first_and_later_updates() -> None:
+    labels = np.array([0.0, 2.0], dtype=np.float32)
+    valid = "Tree=0\nleaf_value=0.5 1.5\nTree=1\nleaf_value=-0.75 0.75\n"
+    check_l2_updates(valid, labels, 0.5)
+    check_l2_updates("Tree=0\nleaf_value=-1 1\n", labels - 1, 1.0)
+    # The real failure produced negative and enormous first-step count leaves.
+    # Later trees must also respect the possible residuals of earlier trees.
+    for corrupt in (
+        "Tree=0\nleaf_value=-26.46 79.37\n",
+        valid + "Tree=2\nleaf_value=25\n",
+    ):
+        with pytest.raises(ValueError):
+            check_l2_updates(corrupt, labels, 0.5)
 
 
 def test_saved_trees_preserve_thresholds_branches_and_constant_trees() -> None:

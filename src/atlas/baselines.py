@@ -1,18 +1,16 @@
 """Run the three required baselines on training and validation only."""
 
+import ctypes
 import json
-import os
 import tempfile
 import time
 import tomllib
 from pathlib import Path
 
+import lightgbm as lgb
 import numpy as np
 import torch
 import yaml
-
-# Both libraries must use Torch's working WSL ROCm runtime.
-import lightgbm as lgb  # isort: skip
 
 from atlas.metrics import Scores, score_column, transform
 from atlas.samples import (
@@ -25,7 +23,7 @@ from atlas.samples import (
     signed_log,
 )
 from atlas.splits import read_split
-from atlas.trees import InputSequence, RegressionTrees
+from atlas.trees import InputSequence, RegressionTrees, check_l2_updates
 
 
 def write_json(path: Path, value: object) -> None:
@@ -92,19 +90,6 @@ def binned_dataset(
     params: dict[str, int | float | str | bool],
     reference: lgb.Dataset | None = None,
 ) -> lgb.Dataset:
-    if reference is not None:
-        # LightGBM 4.7's Sequence/binary reference loaders omit GPU metadata and
-        # crash when attaching validation metrics. Its matrix loader initializes
-        # that metadata correctly. Only validation needs this dense host buffer.
-        values = np.empty((len(dataset), 24 * len(INPUT_NAMES)), dtype=np.float32)
-        for offset in range(0, len(dataset), 4096):
-            indices = np.arange(offset, min(offset + 4096, len(dataset)))
-            values[offset : offset + len(indices)] = dataset.input_batch(
-                indices
-            ).reshape(len(indices), -1)
-        return lgb.Dataset(
-            values, label=np.zeros(len(dataset)), params=params, reference=reference
-        ).construct()
     if path.exists():
         return lgb.Dataset(str(path), params=params, reference=reference).construct()
     result = lgb.Dataset(
@@ -123,12 +108,13 @@ def binned_dataset(
 
 def train_baselines(config_path: Path) -> None:
     """Fit independent target/horizon trees; retain completed models on restart."""
-    if os.environ.get("HIP_LAUNCH_BLOCKING") != "1":
-        raise RuntimeError(
-            "Use atlas train-baselines to enable synchronous HIP launches."
-        )
     if torch.version.hip is None or not torch.cuda.is_available():
         raise RuntimeError("Baseline execution requires the AMD GPU inside Compose.")
+    # The WSL OpenCL driver needs these HSA symbols in the global namespace.
+    ctypes.CDLL(
+        str(Path(torch.__file__).parent / "lib/libhsa-runtime64.so"),
+        mode=ctypes.RTLD_GLOBAL,
+    )
     device = torch.device("cuda:0")
     print(f"Baseline GPU: {torch.cuda.get_device_name(device)}", flush=True)
     raw = tomllib.loads(config_path.read_text())
@@ -160,9 +146,11 @@ def train_baselines(config_path: Path) -> None:
         **tree_options,
         "objective": "regression_l2",
         "metric": "l2",
-        "device_type": "cuda",
-        "num_gpu": 1,
+        "device_type": "gpu",
+        "gpu_platform_id": 0,
         "gpu_device_id": 0,
+        "gpu_use_dp": True,
+        "boost_from_average": True,
         "num_threads": 6,
         "max_bin": 63,
         "bin_construct_sample_cnt": 20000,
@@ -185,7 +173,6 @@ def train_baselines(config_path: Path) -> None:
         "input_months": 24,
         "target_months": 6,
         "lightgbm_version": lgb.__version__,
-        "hip_launch_blocking": True,
         "split_configuration": yaml.safe_load(paths["split"].read_text()),
     }
     output = paths["output"]
@@ -254,7 +241,10 @@ def train_baselines(config_path: Path) -> None:
         for c, target_name in enumerate(TARGET_NAMES):
             started = time.monotonic()
             model_path = models / f"h{h + 1}-{target_name}.txt"
-            if not model_path.exists():
+            completed = model_path.exists()
+            raw_target, observed = target_column(training, h, c)
+            training_labels = signed_log(raw_target[observed])
+            if not completed:
                 for data, dataset in (
                     (train_data, training),
                     (valid_data, validation["temporal"]),
@@ -273,11 +263,18 @@ def train_baselines(config_path: Path) -> None:
                     valid_sets=[valid_data],
                     callbacks=[lgb.early_stopping(patience, verbose=False)],
                 )
-                temporary = model_path.with_suffix(".partial")
-                model.save_model(str(temporary))
-                temporary.replace(model_path)
+                model_text = model.model_to_string()
                 del model
-            forest = RegressionTrees(model_path.read_text()).to(device)
+            else:
+                model_text = model_path.read_text()
+            check_l2_updates(
+                model_text, training_labels, float(tree_options["learning_rate"])
+            )
+            if not completed:
+                temporary = model_path.with_suffix(".partial")
+                temporary.write_text(model_text)
+                temporary.replace(model_path)
+            forest = RegressionTrees(model_text).to(device)
             with torch.inference_mode():
                 for name, dataset in validation.items():
                     prediction = torch.empty(

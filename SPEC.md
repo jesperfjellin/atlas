@@ -367,6 +367,7 @@ The Milestone 3 implementation uses [configs/baselines.toml](configs/baselines.t
 Recent-rate persistence repeats the arithmetic mean of the last six raw input months for every forecast month.
 It averages available values only and predicts zero if the entire lookback is unavailable. Net changes retain their sign.
 LightGBM fits one signed-log regression model for each target and forecast month, using flattened, frozen 24-month inputs.
+It uses the OpenCL GPU trainer with double-precision histograms. Checkpoints must satisfy necessary squared-loss update bounds before saving or reuse.
 Bin boundaries use training inputs only. Each model uses temporal-validation squared error for early stopping; geographic validation is scored separately.
 Completed tree models and binned inputs can be reused when the same run resumes.
 
