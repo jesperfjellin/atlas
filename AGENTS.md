@@ -6,6 +6,7 @@ These instructions apply to the entire repository.
 
 - Read the project specification before editing (`SPEC.md` in the repository; some copies may be named `spec.md`).
 - Read `PROGRESS.md` for the product roadmap, current capabilities, remaining work, model evidence, and blockers.
+- Keep H3 resolution configurable. For an approved cell-size change, follow [the resolution-change guide](docs/cell-resolution.md); do not hardcode the current grid's cell count into model code.
 - Work only on the currently approved milestone.
 - Follow **LOCKED**, **PROVISIONAL**, and **DEFERRED** decisions exactly as defined there.
 - Keep the existing Python package and CLI name `atlas`.

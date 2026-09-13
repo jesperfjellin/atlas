@@ -135,6 +135,7 @@ Use complete calendar months only. Do not use partial months for inputs or targe
 **PROVISIONAL:** a compact GRU encoder with prediction heads, as described in Section 10.
 
 These are ordinary configuration values, but do not build a generic configuration framework around them.
+Keep the pipeline reusable across H3 resolutions. For a later approved change, follow [Changing the H3 cell resolution](docs/cell-resolution.md).
 
 ### 6.2 Fixed cell universe
 
