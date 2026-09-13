@@ -77,7 +77,9 @@ def main() -> int:
         "train-baselines", help="Fit and compare the three development baselines."
     )
     baselines.add_argument("--config", required=True, type=Path)
-    learner = commands.add_parser("train", help="Train and validate the temporal GRU.")
+    learner = commands.add_parser(
+        "train", help="Train and validate a temporal neural model."
+    )
     learner.add_argument("--config", required=True, type=Path)
     learner.add_argument("--resume", type=Path)
     embeddings = commands.add_parser(

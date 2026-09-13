@@ -1,7 +1,7 @@
 """Three small development checks for learned place-time representations."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import h3
@@ -12,10 +12,10 @@ import yaml
 
 from atlas.baselines import write_json
 from atlas.metrics import transform
-from atlas.model import TemporalGRU
+from atlas.model import ResidualMLP, TemporalGRU
 from atlas.samples import INPUT_NAMES, CellMonths, Preprocessing, WindowDataset
 from atlas.splits import read_split
-from atlas.training import gpu_device, sample_keys, score_predictions
+from atlas.training import gpu_device, model_inputs, sample_keys, score_predictions
 
 matplotlib.use("Agg")
 
@@ -66,18 +66,25 @@ def fit_probe(
 
 @torch.inference_mode()
 def representations(
-    model: TemporalGRU,
+    model: TemporalGRU | ResidualMLP,
     dataset: WindowDataset,
     indices: np.ndarray,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Collect a bounded, target-independent training subset for these checks."""
-    inputs = torch.empty((len(indices), 24 * len(INPUT_NAMES)), device=device)
-    embeddings = torch.empty((len(indices), model.encoder.hidden_size), device=device)
+    dimensions = (
+        model.input_size if isinstance(model, ResidualMLP) else 24 * len(INPUT_NAMES)
+    )
+    inputs = torch.empty((len(indices), dimensions), device=device)
+    embeddings = torch.empty((len(indices), model.embedding_size), device=device)
     for offset in range(0, len(indices), 1024):
         selected = indices[offset : offset + 1024]
-        values = torch.as_tensor(dataset.input_batch(selected), device=device)
-        inputs[offset : offset + len(selected)] = values.flatten(1)
+        values = model_inputs(model, dataset, selected, device)
+        inputs[offset : offset + len(selected)] = (
+            model.normalized_inputs(values)
+            if isinstance(model, ResidualMLP)
+            else values.flatten(1)
+        )
         embeddings[offset : offset + len(selected)] = model(values)[1]
     return inputs, embeddings
 
@@ -102,7 +109,7 @@ def selected_cells(dataset: WindowDataset) -> list[tuple[str, int]]:
 
 @torch.inference_mode()
 def explore_embeddings(run: Path) -> None:
-    """Compare a saved GRU with dimension-matched PCA on development data only."""
+    """Compare a saved neural encoder with PCA on development data only."""
     import matplotlib.pyplot as plt
 
     device = gpu_device()
@@ -113,6 +120,10 @@ def explore_embeddings(run: Path) -> None:
     if checkpoint["configuration"] != config:
         raise ValueError("Checkpoint and run configuration differ.")
     split = read_split(Path(config["split"]))
+    split = replace(
+        split,
+        months=tuple(m for m in split.months if m < split.temporal["validation"][1]),
+    )
     corpus = CellMonths.read(Path(config["dataset"]), split)
     preprocessing = Preprocessing.read(Path(config["preprocessing"]))
     if (
@@ -124,7 +135,16 @@ def explore_embeddings(run: Path) -> None:
         raise ValueError(
             "The split or input preprocessing differs from the trained run."
         )
-    model = TemporalGRU(settings["hidden_size"], settings["layers"]).to(device).eval()
+    model = (
+        (
+            ResidualMLP(**config["model"])
+            if "model" in config
+            else TemporalGRU(settings["hidden_size"], settings["layers"])
+        )
+        .to(device)
+        .eval()
+    )
+    encoder_name = "mlp" if isinstance(model, ResidualMLP) else "gru"
     model.load_state_dict(checkpoint["model"])
     training = WindowDataset(corpus, preprocessing, "train")
     # The same rows fit PCA, both probes, and representation scaling. No labels
@@ -138,13 +158,13 @@ def explore_embeddings(run: Path) -> None:
     raw_target, mask = training.target_batch(indices)
     target = torch.as_tensor(raw_target.reshape(len(indices), -1), device=device)
     available = torch.as_tensor(mask.reshape(len(indices), -1), device=device)
-    dimension = model.encoder.hidden_size
+    dimension = model.embedding_size
     input_mean = inputs.mean(dim=0)
     _, _, components = torch.pca_lowrank(inputs, q=dimension + 16, center=True, niter=2)
     components = components[:, :dimension]
     pca = (inputs - input_mean) @ components
     probes = {
-        "gru": fit_probe(encoded, target, available, ridge),
+        encoder_name: fit_probe(encoded, target, available, ridge),
         "pca": fit_probe(pca, target, available, ridge),
     }
     embedding_mean = encoded.mean(dim=0)
@@ -165,6 +185,8 @@ def explore_embeddings(run: Path) -> None:
     result: dict[str, object] = {
         "best_epoch": checkpoint["epoch"],
         "dimension": dimension,
+        "encoder": encoder_name,
+        "input_dimensions": inputs.shape[1],
         "training_samples": len(indices),
         "training_selection_seed": seed,
         "pca": "randomized PCA; 16 extra components, two power iterations",
@@ -190,10 +212,15 @@ def explore_embeddings(run: Path) -> None:
         }
         for offset in range(0, len(dataset), 1024):
             selected = np.arange(offset, min(offset + 1024, len(dataset)))
-            batch = torch.as_tensor(dataset.input_batch(selected), device=device)
+            batch = model_inputs(model, dataset, selected, device)
+            flat = (
+                model.normalized_inputs(batch)
+                if isinstance(model, ResidualMLP)
+                else batch.flatten(1)
+            )
             values = {
-                "gru": model(batch)[1],
-                "pca": (batch.flatten(1) - input_mean) @ components,
+                encoder_name: model(batch)[1],
+                "pca": (flat - input_mean) @ components,
             }
             for key, representation in values.items():
                 retained[key][offset : offset + len(selected)] = representation
@@ -241,7 +268,10 @@ def explore_embeddings(run: Path) -> None:
                     cell * len(dataset.starts), (cell + 1) * len(dataset.starts)
                 )
                 xy = (
-                    ((retained["gru"][selected] - embedding_mean) @ trajectory_axes)
+                    (
+                        (retained[encoder_name][selected] - embedding_mean)
+                        @ trajectory_axes
+                    )
                     .cpu()
                     .numpy()
                 )

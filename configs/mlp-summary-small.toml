@@ -1,0 +1,24 @@
+dataset = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
+output = "../runs/mlp-summary-small-seed20260913"
+
+[model]
+inputs = "summary"
+width = 205
+dropout = 0.1
+
+[training]
+hidden_size = 64
+layers = 2
+batch_size = 512
+epochs = 120
+patience = 0
+learning_rate = 0.0003
+weight_decay = 0.01
+gradient_clip = 1.0
+seed = 20260913
+
+[schedule]
+milestones = [30, 60, 90]
+factor = 0.3

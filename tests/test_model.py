@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from atlas.model import TemporalGRU, masked_loss, project_counts
+from atlas.model import ResidualMLP, TemporalGRU, masked_loss, project_counts
 from atlas.training import restore_checkpoint, save_checkpoint
 
 
@@ -34,17 +34,25 @@ def test_loss_weights_targets_families_and_horizons_and_masks_gradients() -> Non
     assert masked_loss(prediction, target, mask).item() == pytest.approx(1)
 
 
+@pytest.mark.parametrize("kind", ["gru", "mlp"])
 def test_checkpoint_restores_embedding_optimizer_and_next_update(
     tmp_path: Path,
+    kind: str,
 ) -> None:
     torch.manual_seed(83)
-    model = TemporalGRU()
+    model = TemporalGRU() if kind == "gru" else ResidualMLP("summary", 16)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
-    inputs = torch.randn(3, 24, 104)
+    inputs = torch.randn(3, 24, 104) if kind == "gru" else torch.randn(3, 252)
+    if isinstance(model, ResidualMLP):
+        inputs[:, model.observed_columns] = 1
+        model.fit_input_scaling(inputs)
     target = torch.zeros(3, 6, 37)
     mask = torch.ones_like(target, dtype=torch.bool)
 
-    def update(learner: TemporalGRU, optim: torch.optim.Optimizer) -> None:
+    def update(
+        learner: TemporalGRU | ResidualMLP, optim: torch.optim.Optimizer
+    ) -> None:
+        learner.train()
         optim.zero_grad(set_to_none=True)
         prediction, embedding = learner(inputs)
         assert prediction.shape == (3, 6, 37) and embedding.shape == (3, 64)
@@ -52,7 +60,7 @@ def test_checkpoint_restores_embedding_optimizer_and_next_update(
         optim.step()
 
     update(model, optimizer)
-    before = model(inputs)
+    before = model.eval()(inputs)
     path = tmp_path / "latest.pt"
     configuration: dict[str, object] = {"seed": 83}
     save_checkpoint(
@@ -67,7 +75,7 @@ def test_checkpoint_restores_embedding_optimizer_and_next_update(
     )
     expected_random = torch.rand(3)
     update(model, optimizer)
-    resumed = TemporalGRU()
+    resumed = TemporalGRU() if kind == "gru" else ResidualMLP("summary", 16)
     resumed_optimizer = torch.optim.AdamW(resumed.parameters(), lr=0.01)
     assert restore_checkpoint(path, resumed, resumed_optimizer, configuration) == (
         1,
@@ -76,13 +84,36 @@ def test_checkpoint_restores_embedding_optimizer_and_next_update(
         0,
     )
     torch.testing.assert_close(torch.rand(3), expected_random)
-    for actual, expected in zip(resumed(inputs), before, strict=True):
+    for actual, expected in zip(resumed.eval()(inputs), before, strict=True):
         torch.testing.assert_close(actual, expected)
     update(resumed, resumed_optimizer)
     for actual, expected in zip(resumed.parameters(), model.parameters(), strict=True):
         torch.testing.assert_close(actual, expected)
     with pytest.raises(ValueError):
         restore_checkpoint(path, resumed, resumed_optimizer, {"seed": 84})
+
+
+def test_mlp_scales_only_observed_summary_means_and_preserves_other_inputs() -> None:
+    model = ResidualMLP("summary", 16)
+    training = torch.zeros(3, 252)
+    mean_column = int(model.mean_columns[0])
+    observed_column = int(model.observed_columns[0])
+    training[:, mean_column] = torch.tensor([2.0, 4.0, 1e8])
+    training[:, observed_column] = torch.tensor([1.0, 1.0, 0.0])
+    model.fit_input_scaling(training)
+    assert model.summary_mean[0] == 3 and model.summary_scale[0] == 1
+    validation = training.clone()
+    validation[:, 0] = 123  # Frozen state normalization must not be refitted here.
+    validation[:, mean_column] = torch.tensor([5.0, -3.0, -1e8])
+    normalized = model.normalized_inputs(validation)
+    torch.testing.assert_close(
+        normalized[:, mean_column], torch.tensor([2.0, -6.0, 0.0])
+    )
+    assert torch.equal(normalized[:, 0], validation[:, 0])
+    assert torch.equal(
+        normalized[:, model.observed_columns], validation[:, model.observed_columns]
+    )
+    assert model.summary_mean[0] == 3 and model.summary_scale[0] == 1
 
 
 def test_linear_probe_masks_each_target_and_fits_scaling_on_training_rows() -> None:

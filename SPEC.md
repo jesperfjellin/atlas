@@ -2,7 +2,7 @@
 
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
-**Version:** 0.5\
+**Version:** 0.6\
 **Last updated:** 2026-09-13
 
 ## 1. How to use this specification
@@ -425,7 +425,7 @@ UMAP plots and hand-labelled interpretations are exploratory evidence, not proof
 `atlas explore-embeddings --run` implements these development checks on the AMD GPU.
 PCA and both ridge probes use the same 32,768 training windows, selected uniformly without replacement with seed `20260913`.
 This bounded subset is selected without target activity. Both complete validation groups remain unresampled.
-PCA has the same dimension as the GRU embedding. Both probes predict all transformed change targets, with training-fitted representation scaling and ridge strength `0.01`.
+PCA has the same dimension as the neural embedding and uses the same prepared inputs. Both probes predict all transformed change targets, with training-fitted representation scaling and ridge strength `0.01`.
 The ridge penalty is relative to the observed sample count; intercepts are not penalized. Missing targets are masked separately.
 Neighbour queries use eligible temporal-validation cells nearest declared coordinates for Kristiansand, Oslo, and Tromsø.
 They compare different cells at the same final validation cutoff. The nearest eligible cell can lie outside the named city.
@@ -713,8 +713,11 @@ The bounded [baseline-and-diagnosis campaign](PROGRESS.md#baseline-and-diagnosis
 `atlas diagnose-baselines --config configs/diagnosis.toml` compares transformed recent means, full-data ridge and PCA/ridge, and state/summary controls derived only from the existing permitted inputs.
 It uses earlier temporal folds within the original training partition for selection and diagnosis, with independently fitted training-only preprocessing.
 These supplementary comparisons preserve the primary split, corpus, targets, scoring, and Gate 3 reference and threshold.
-The campaign ends with measured comparisons and a recommended nonlinear history comparison, which needs the next scope decision.
-It does not authorize follow-up training, new losses, spatial inputs, or reserved-test evaluation.
+The next approved work is the [paired nonlinear capacity study](PROGRESS.md#paired-nonlinear-capacity-study): residual MLPs using summaries, or summaries plus ordered history, at two matched parameter budgets.
+This extends the provisional GRU architecture choice while retaining the frozen data, targets, loss, scoring, and Gate 3 criteria.
+All four runs receive the same declared optimizer, regularization, epoch budget, and learning-rate schedule; checkpoint selection remains temporal-validation RMSE.
+The study includes validation forecasts and embeddings, conditional seed repeats, and the existing embedding checks for the declared candidate.
+It does not authorize new losses, spatial inputs, or reserved-test evaluation.
 
 Deliver:
 
@@ -775,4 +778,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 remains in progress. The baseline-and-diagnosis campaign is complete; the recommended next model experiment in PROGRESS.md requires an owner scope decision before implementation. Preserve the frozen primary experiment and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 remains in progress. Complete the approved paired nonlinear capacity study in PROGRESS.md, including all four scheduled runs, the declared validation and embedding comparisons, and conditional seed repeats. Preserve the frozen primary experiment and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.

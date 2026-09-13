@@ -1,7 +1,7 @@
 # Atlas progress
 
 This is the single product roadmap for the Atlas OSM learning experiment.
-The [specification](SPEC.md), version 0.5, defines the experiment, technical contracts, and milestone gates.
+The [specification](SPEC.md), version 0.6, defines the experiment, technical contracts, and milestone gates.
 This document tracks capabilities, remaining work, model evidence, and blockers.
 
 ## Product and current position
@@ -23,7 +23,7 @@ Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are comple
 Milestone 4 is approved and in progress. Training, resume, validation exports, and embedding checks are implemented.
 Two complete GRU development runs trail the tree baseline; their linear embedding probes also trail dimension-matched PCA.
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. A linear state-and-activity-summary model nearly matches tree magnitude errors and improves occurrence ranking.
-The next scope decision is a controlled nonlinear comparison of summaries with summaries plus ordered history.
+The approved next work is the controlled nonlinear comparison of summaries with summaries plus ordered history, specified below.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -88,7 +88,7 @@ Neural forecasting gains and useful learned representations remain unproven.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, initial model/representation comparisons, and the baseline-and-diagnosis campaign are complete. The next model experiment needs a scope decision, followed by model selection, conditional seed repeats, frozen final choice, and reserved-test evaluation.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, initial model/representation comparisons, and the baseline-and-diagnosis campaign are complete. The paired nonlinear capacity study is approved and in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -208,7 +208,7 @@ Float64 GPU regression agreed with independent small reference solves within `2e
 The run directories retain configurations, all preprocessing and fits, 89 keyed forecasts, metrics, and building summaries.
 All declared comparisons completed. Full command resume preserves fitted models, forecasts, and scores.
 
-**Recommendation, requiring the next scope decision:** compare a nonlinear network using state/activity summaries with one receiving those same summaries plus ordered monthly history.
+**Approved follow-up:** compare a nonlinear network using state/activity summaries with one receiving those same summaries plus ordered monthly history.
 The hypothesis is that nonlinear relationships can improve the strong linear forecast; the paired history control tests whether detailed monthly inputs add further value.
 Use residual MLPs with a 64-dimensional embedding, two declared capacity budgets, and approximately matched parameter counts within each pair.
 Keep the optimizer, regularization, learning-rate schedule, training population, validation rule, and maximum training budget matched.
@@ -216,9 +216,38 @@ Allow training to continue through scheduled learning-rate reductions before dec
 This starts a controlled neural capacity study with a declared comparison and training budget.
 MLP temporal encoders have precedent in [TiDE](https://arxiv.org/abs/2304.08424), but its benchmark results do not establish an Atlas improvement.
 
-Gate 3, the loss, and the reserved-test restriction remain unchanged. New architectures, training schedules, recency weighting, occurrence heads, or losses require a scope decision.
-This campaign recommends the experiment; it does not start it or complete Milestone 4.
+Gate 3, the loss, and the reserved-test restriction remain unchanged. The paired MLP study below is now approved; recency weighting, occurrence heads, and new losses remain outside its scope.
+The baseline campaign does not complete Milestone 4.
 Spatial context, finer cells, source-history rebuilds, and reserved-test evaluation remain outside its scope.
+
+## Paired nonlinear capacity study
+
+**Approved and in progress; no results yet.** Fix the following design before training:
+
+| Inputs | Width | Trainable parameters | Capacity pair |
+| --- | ---: | ---: | --- |
+| State and activity summaries, 252 values | 205 | 249,629 | Small |
+| Same summaries plus ordered history, 2,718 distinct values | 76 | 249,866 | Small |
+| State and activity summaries, 252 values | 457 | 999,329 | Large |
+| Same summaries plus ordered history, 2,718 distinct values | 258 | 1,001,344 | Large |
+
+Each model has an input projection, two pre-normalized residual MLP blocks, a 64-value embedding, and a linear 222-output forecast head.
+Each block uses two same-width linear layers, GELU, LayerNorm, and dropout 0.1.
+Widths differ to match parameter budgets; the comparison does not isolate temporal order from every architectural effect.
+Keep the original numeric input normalization and unscaled calendar/availability channels.
+Standardize engineered change means using observed training-window summaries only; leave activity and observed fractions unscaled.
+
+Use all 768,423 unresampled training windows, batch size 512, AdamW, learning rate 0.0003, weight decay 0.01, and gradient clipping at 1.
+Run every configuration for 120 epochs with no early stopping. Multiply the learning rate by 0.3 after epochs 30, 60, and 90.
+Save the best checkpoint by full temporal-validation signed-log RMSE; score both full validation groups afterward.
+Use seed 20260913 and the same per-epoch sample permutation across runs.
+Checkpoints must retain optimizer, epoch, random state, and the declared schedule so interruption does not reset training.
+Measure parameter counts, learning curves, runtime, and process/GPU memory. Verify numerical behavior and resume before full runs.
+
+Choose the candidate for the existing embedding checks by the lowest mean RMSE relative to trees across the two validation groups; ties follow table order.
+If a configuration meets both frozen Gate 3 criteria in both groups, repeat it with two additional seeds before claiming a worthwhile gain.
+Otherwise, report all four results without seed repeats. Keep reserved-test targets closed and end at a measured recommendation.
+No broader architecture search, new loss, spatial context, or source-data rebuild is part of this study.
 
 ## Current model evidence
 
@@ -387,8 +416,8 @@ The baseline evidence supports this experiment, and Gate 3 fixes its forecast su
 
 There is no tooling or GPU blocker. Both complete GRU runs are numerically stable, but neither provides the required forecast or representation improvement.
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. Linear activity summaries nearly match tree magnitude errors and improve occurrence ranking.
-The next decision is whether to approve the recommended paired residual-MLP capacity study, comparing summaries with summaries plus ordered history.
-No follow-up neural training, new objective, or recency-weighted refit has started. Spatial-context implementation remains deferred.
+The paired residual-MLP capacity study above is approved. Implementation and four complete scheduled training runs are the immediate work.
+No new objective or recency-weighted refit is authorized. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.
