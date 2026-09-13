@@ -18,7 +18,8 @@ The scaffold uses Python 3.14 and requires the AMD GPU through the main Compose 
 The RX 7900 XTX passed tensor and gradient checks in this service.
 A synthetic GRU forward pass, backward pass, and optimizer step also passed on this GPU.
 Milestones 1 and 2 are complete, including the full Norway corpus and [Gate 2 decisions](SPEC.md#gate-2-decisions--frozen-2026-09-13).
-The real Norway sample loader passed GPU acceptance. Training remains unimplemented.
+The real Norway sample loader passed GPU acceptance. Milestone 3 is approved and underway.
+Neural training remains unimplemented.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
 
@@ -54,9 +55,13 @@ Spatial context, continual learning, live updates, and an inspection application
 - The completed Norway corpus contains 132 monthly Parquet files with 1,906,872 unique cell-month rows and consistent feature availability.
 - A real Norway batch passed GPU loading on the RX 7900 XTX: inputs `(32, 24, 104)`, targets `(32, 6, 37)`, and boolean target masks.
 - Saved input preprocessing uses unique training input cell-months only. Development summaries cover training and both validation groups, without reserved-test target summaries.
+- The frozen scorer preserves target masks, tied occurrence scores, and equal weights for target families and forecast months.
+- `atlas train-baselines --config` compares zero change, a six-month recent rate, and separate LightGBM models for all 222 target/horizon outputs.
+- LightGBM bins flattened inputs in batches and reuses those bins. Completed models survive interruption. Training and forecast execution use the Radeon GPU.
+- A Norway training pilot passed binning, binary reload, fitting, checkpoint saving, and GPU prediction for 4,288 samples with 2,496 flattened input values each.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
-These capabilities establish runtime and input-preparation readiness. They provide no evidence of predictive skill or useful learned representations.
+These capabilities establish runtime, input preparation, and baseline execution. They provide no evidence of predictive skill or useful learned representations yet.
 
 ## Remaining work
 
@@ -73,6 +78,7 @@ The gates in the specification govern progression through this roadmap.
 
 No baseline scores, neural-model results, or embedding comparisons are available.
 Predictive skill and useful learned representations remain unproven.
+Synthetic learning checks and the Norway training pilot verify baseline execution; they do not measure held-out predictive skill.
 
 The first comparison needs validation results against the strongest implemented baseline and a linear probe against dimension-matched PCA.
 A promising configuration needs two additional seeds.
@@ -161,8 +167,13 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
-No Milestone 2 blocker remains. The next decision is approval to implement [Milestone 3](SPEC.md#milestone-3--baselines).
-That milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
+[Milestone 3](SPEC.md#milestone-3--baselines) is approved.
+GPU baseline acceptance has passed. The full Norway validation comparison remains to be run.
+The milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
+
+The LightGBM command loads Torch's ROCm runtime first and enforces synchronous HIP launches.
+These settings avoid observed kernel-loading failures and unstable synthetic learning on this WSL setup.
+They apply to the baseline command; PyTorch's normal execution settings remain available for the later neural experiment.
 
 GPU runtime and batch acceptance establish readiness for training, but not its speed, stability, or predictive value.
 Geometry omissions and the approximate study boundary remain limitations of the fixed experiment, as described in the specification.

@@ -164,26 +164,30 @@ class WindowDataset(Dataset[Sample]):
     def __len__(self) -> int:
         return len(self.positions) * len(self.starts)
 
+    def input_batch(self, indices: np.ndarray) -> np.ndarray:
+        """Build the same permitted inputs in batches for tree fitting/inference."""
+        if indices.ndim != 1 or ((indices < 0) | (indices >= len(self))).any():
+            raise IndexError("Input batch indices fall outside this partition.")
+        cells = np.asarray(self.positions)[indices // len(self.starts)]
+        starts = np.asarray(self.starts)[indices % len(self.starts)]
+        months = starts[:, None] + np.arange(-self.corpus.split.input_months, 0)
+        valid = self.corpus.available[cells[:, None], months]
+        values = self.corpus.values[cells[:, None], months]
+        normalized = (
+            signed_log(values) - self.preprocessing.mean
+        ) / self.preprocessing.scale
+        return np.concatenate(
+            (np.where(valid, normalized, 0), self.calendar[months], valid), axis=-1
+        ).astype(np.float32)
+
     def __getitem__(self, index: int) -> Sample:
         if not 0 <= index < len(self):
             raise IndexError(index)
         cell = self.positions[index // len(self.starts)]
         start = self.starts[index % len(self.starts)]
         split = self.corpus.split
-        input_slice = slice(start - split.input_months, start)
         target_slice = slice(start, start + split.target_months)
-        valid = self.corpus.available[cell, input_slice]
-        normalized = (
-            signed_log(self.corpus.values[cell, input_slice]) - self.preprocessing.mean
-        ) / self.preprocessing.scale
-        inputs = np.concatenate(
-            (
-                np.where(valid, normalized, 0),
-                self.calendar[input_slice],
-                valid.astype(np.float32),
-            ),
-            axis=-1,
-        ).astype(np.float32)
+        inputs = self.input_batch(np.array([index]))[0]
         targets = self.corpus.values[cell, target_slice][:, TARGET_COLUMNS].copy()
         target_mask = self.corpus.available[cell, target_slice][
             :, TARGET_COLUMNS

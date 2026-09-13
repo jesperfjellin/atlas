@@ -90,3 +90,42 @@ def test_preprocessing_ignores_heldout_cells_and_months(corpus: CellMonths) -> N
     after = Preprocessing.fit(corpus)
     np.testing.assert_array_equal(after.mean, before.mean)
     np.testing.assert_array_equal(after.scale, before.scale)
+
+
+def test_baseline_batches_rates_and_labels_obey_the_same_cutoff(
+    corpus: CellMonths,
+) -> None:
+    from atlas.baselines import recent_rate, target_column
+    from atlas.metrics import transform
+    from atlas.trees import InputSequence
+
+    preprocessing = Preprocessing(
+        np.zeros(51, dtype=np.float32), np.ones(51, dtype=np.float32)
+    )
+    dataset = WindowDataset(corpus, preprocessing, "train")
+    sequence = InputSequence(dataset)
+    # LightGBM's native Sequence sampler supplies NumPy integer scalars.
+    np.testing.assert_array_equal(sequence[np.int64(0)], sequence[0])
+    indices = np.array([67, 66, 0])
+    batch = sequence[indices.tolist()].reshape(3, 24, 104)
+    assert not batch[0, :, :51].any()
+    np.testing.assert_allclose(batch[1, :, 0], np.log1p(corpus.values[0, 66:90, 0]))
+    np.testing.assert_array_equal(batch[2], dataset[0]["inputs"].numpy())
+    corpus.available[0, 18:24, 1] = False
+    corpus.available[0, 22:24, 2] = False
+    device = dataset[0]["inputs"].device
+    rates = recent_rate(dataset, 6, device)
+    torch.testing.assert_close(
+        rates[0, 0], transform(torch.tensor(corpus.values[0, 18:24, 0].mean()))
+    )
+    assert rates[0, 1] == 0
+    torch.testing.assert_close(
+        rates[0, 2],
+        transform(torch.tensor(corpus.values[0, 18:22, 2].mean())),
+    )
+    assert not rates[67:].any()
+    values, mask = target_column(dataset, 5, 0)
+    assert values[0] == corpus.values[0, 29, 0] and mask.all()
+    corpus.values[0, 24:] = 1e8
+    corpus.values[2:] = -1e8
+    torch.testing.assert_close(recent_rate(dataset, 6, device)[0], rates[0])

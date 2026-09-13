@@ -1,6 +1,7 @@
 """Command-line entry point for the current Atlas experiment."""
 
 import argparse
+import os
 import platform
 import subprocess
 import sys
@@ -73,14 +74,25 @@ def main() -> int:
         help="Build monthly features from OSM history.",
     )
     builder.add_argument("--config", required=True, type=Path)
+    baselines = commands.add_parser(
+        "train-baselines", help="Fit and compare the three development baselines."
+    )
+    baselines.add_argument("--config", required=True, type=Path)
     args = parser.parse_args()
     try:
         if args.command == "doctor":
             doctor()
-        else:
+        elif args.command == "build-dataset":
             from atlas.dataset import build_dataset
 
             build_dataset(args.config)
+        else:
+            # This LightGBM ROCm build needs synchronous launches on WSL to
+            # pass the synthetic learning check. Set before either GPU import.
+            os.environ["HIP_LAUNCH_BLOCKING"] = "1"
+            from atlas.baselines import train_baselines
+
+            train_baselines(args.config)
     except (
         ImportError,
         OSError,

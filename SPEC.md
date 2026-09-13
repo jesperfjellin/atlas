@@ -363,6 +363,13 @@ Implement only these initially:
 
 If a simple seasonal mean is obviously useful after looking at development data, it may be added. Do not build a large baseline framework.
 
+The Milestone 3 implementation uses [configs/baselines.toml](configs/baselines.toml).
+Recent-rate persistence repeats the arithmetic mean of the last six raw input months for every forecast month.
+It averages available values only and predicts zero if the entire lookback is unavailable. Net changes retain their sign.
+LightGBM fits one signed-log regression model for each target and forecast month, using flattened, frozen 24-month inputs.
+Bin boundaries use training inputs only. Each model uses temporal-validation squared error for early stopping; geographic validation is scored separately.
+Completed tree models and binned inputs can be reused when the same run resumes.
+
 ### 9.2 Metrics
 
 **LOCKED at Gate 2:** use two primary metrics on the natural, unresampled evaluation samples.
@@ -718,4 +725,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 2 and Gate 2 are complete. Preserve the frozen corpus, split, feature definitions, preprocessing, loss family, and primary metrics. Milestone 3 is next and requires owner approval before implementation. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks.
+> Milestone 3 is approved. Complete the required baselines and Gate 3 using the frozen corpus, split, feature definitions, preprocessing, loss family, and primary metrics. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks.
