@@ -1,7 +1,7 @@
 # Atlas progress
 
 This is the single product roadmap for the Atlas OSM learning experiment.
-The [specification](SPEC.md), version 0.4, defines the experiment, technical contracts, and milestone gates.
+The [specification](SPEC.md), version 0.5, defines the experiment, technical contracts, and milestone gates.
 This document tracks capabilities, remaining work, model evidence, and blockers.
 
 ## Product and current position
@@ -22,6 +22,7 @@ The real Norway sample loader passed GPU acceptance.
 Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are complete. Boosted trees are the strongest baseline on both validation groups and primary metrics.
 Milestone 4 is approved and in progress. Training, resume, validation exports, and embedding checks are implemented.
 Two complete GRU development runs trail the tree baseline; their linear embedding probes also trail dimension-matched PCA.
+The next approved work is the [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) within Milestone 4.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -83,10 +84,59 @@ Neural forecasting gains and useful learned representations remain unproven.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, and initial model/representation comparisons exist. Model selection, conditional seed repeats, frozen final choice, and reserved-test evaluation remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, and initial model/representation comparisons exist. The baseline-and-diagnosis campaign comes next, followed by model selection, conditional seed repeats, frozen final choice, and reserved-test evaluation.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
+
+## Baseline-and-diagnosis campaign
+
+**Approved next work; not yet implemented or run.** This bounded comparison supports model selection within [Milestone 4](SPEC.md#milestone-4--first-temporal-learner).
+It will measure the strength of simple learned forecasts, the value of historical inputs, and sensitivity to development periods.
+Its findings will prioritize hypotheses for a direct follow-up experiment; they need not identify one cause of the GRU results.
+
+### Comparisons
+
+- Add six-month recent means computed in signed-log space, retaining the existing availability rules and signed net changes.
+- Fit ridge regression on all 2,496 ordered input values, using every eligible training window.
+- Fit 64-dimensional PCA and its ridge predictor on the same full training population.
+- Fit two reduced-input ridge controls: final mapped state plus calendar, and that information plus activity summaries.
+  Fix the summaries before fitting: six- and 24-month transformed change means and active-month fractions under the frozen occurrence definition.
+  Retain availability in both controls.
+
+Use the same permitted history, target definitions, training rows, and evaluation populations across learned comparators.
+Declare at most five ridge strengths per comparator before fitting. Keep intercepts unpenalized and express penalties relative to observed sample counts.
+Select each comparator's strength by mean aggregate signed-log RMSE across the earlier folds below.
+Keep PCA at 64 dimensions for this campaign. Preserve the original zero, recent-rate, tree, and GRU results as reference comparisons.
+
+### Historical comparison and safeguards
+
+Use three earlier temporal folds within the original training geography: training targets from 2017 through 2019, 2020, or 2021, respectively.
+Their validation target years are 2020, 2021, and 2022. Keep each complete six-month target window inside its assigned period.
+Fit input normalization, PCA, representation scaling, and models independently from each fold's permitted training data.
+Apply the [training-only preprocessing rules](SPEC.md#101-frozen-transforms-and-loss) to that fold's dates; never reuse statistics fitted through 2022 for an earlier fold.
+Preserve geographic exclusions and buffers at every date.
+
+After selection, fit the learned comparators on all original training windows and score both complete 2023–2024 validation groups.
+Keep the original preprocessing and split files intact; save fold-specific fits separately.
+The saved trees and GRUs are references for the original validation period only; their later training data prevents using them as earlier-fold forecasts.
+Use the [frozen scorer](SPEC.md#92-metrics), including magnitude-ranked occurrence AP. Keep reserved-test targets closed.
+
+Report aggregate, family, horizon, and target-year results, plus geographic-parent sensitivity and supports on the original geographic validation group.
+Summarize building additions by development year using unique cell-months: positive frequency, positive-size mean and median, and burst concentration.
+These summaries can reveal period differences; neither large conditional means nor import dates establish their cause.
+
+### Completion and limits
+
+Completion requires all declared comparisons and folds to finish, followed by the full original validation comparison.
+Use bounded batches and AMD GPU fitting and prediction inside Compose. Verify numerical correctness against a small reference and measure runtime and peak memory.
+Save configurations, preprocessing, fitted models, keyed validation predictions, and metrics in ordinary run directories. Reuse completed fits after interruption.
+Record the measured results and limitations here, then recommend one next experiment with a hypothesis and a concrete comparison.
+Passing the required checks and committing and pushing the implementation are part of completion; a smoke run alone is insufficient.
+
+End the campaign at that recommendation. Further model searches, recency-weighted refits, neural retraining, occurrence heads, new losses, and embedding tasks need the next scope decision.
+Spatial context, a finer grid, source-history rebuilds, and reserved-test evaluation are outside this campaign.
+Campaign completion does not complete Milestone 4. A sustained neural capacity and training-schedule study remains a possible next experiment.
 
 ## Current model evidence
 
@@ -106,6 +156,12 @@ Recent activity improves occurrence ranking, but its arithmetic rate forecasts h
 Boosted trees reduce aggregate magnitude error by 11.0% on temporal validation and 12.3% on geographic validation relative to zero change.
 Their occurrence AP is 89.6% and 86.6% higher, respectively, than recent-rate persistence.
 This supports trying the compact GRU under the [frozen Gate 3 criterion](SPEC.md#gate-3-decisions--frozen-2026-09-13).
+
+Calculated from the temporal tree scores, semantic targets contribute 1.1988% of aggregate squared error.
+Perfect semantic predictions with raw and net errors unchanged would reduce aggregate RMSE by only 0.6012%.
+This counterfactual applies to semantic additions/removals; building and road changes also occur in the net family.
+Family-level improvements therefore need separate interpretation alongside the frozen aggregate gate.
+Occurrence AP ranks point-forecast magnitude; it does not measure calibrated change probabilities, particularly for signed net targets.
 
 The reference run is `runs/baselines-norway-opencl/`, with resolved configuration, logs, 222 saved model files, and complete `metrics.json`.
 Metrics include all six horizons, three target families, and per-target observation and positive supports for each baseline and validation group.
@@ -152,6 +208,9 @@ The [embedding check](SPEC.md#94-embedding-evaluation) uses the same 32,768 trai
 | Geographic | PCA | **0.703244** | **0.336576** |
 
 PCA wins this bounded probe comparison. Useful added representation structure is not demonstrated.
+The subset size and fixed ridge penalty leave full-data linear performance unmeasured.
+The two short GRU runs use one architecture and seed, change learning rate and weight decay together, and test no learning-rate schedule.
+They do not establish a neural performance ceiling.
 The initial GRU's inspected neighbours show some understandable grouping: the Oslo-area query matches other densely mapped cells, including a Trondheim-area cell.
 The eligible query north of Tromsø and its closest matches have few mapped buildings and little recent activity.
 This is exploratory interpretation from input months, not evidence of better prediction. The selected eligible cells do not necessarily cover the named city centres.
@@ -245,7 +304,8 @@ There is no remaining Milestone 3 blocker. [Milestone 4](SPEC.md#milestone-4--fi
 The baseline evidence supports this experiment, and Gate 3 fixes its forecast success criterion before neural training.
 
 There is no tooling or GPU blocker. Both complete GRU runs are numerically stable, but neither provides the required forecast or representation improvement.
-The next model decision belongs within the current compact temporal-model scope. These results do not justify spatial-context implementation.
+The approved [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is the immediate work; its implementation and measured comparisons remain outstanding.
+It will support a recommendation for the next model experiment. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.

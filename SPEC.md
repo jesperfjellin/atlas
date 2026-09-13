@@ -2,7 +2,7 @@
 
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
-**Version:** 0.4\
+**Version:** 0.5\
 **Last updated:** 2026-09-13
 
 ## 1. How to use this specification
@@ -709,6 +709,12 @@ Keep those targets closed until the neural configuration is frozen; do not retun
 
 ### Milestone 4 — First temporal learner
 
+The approved next work is the bounded [baseline-and-diagnosis campaign](PROGRESS.md#baseline-and-diagnosis-campaign).
+It adds transformed recent means, full-data ridge and PCA/ridge, and state/summary controls derived only from the existing permitted inputs.
+Earlier temporal folds within the original training partition are approved for selection and diagnosis, with independently fitted training-only preprocessing.
+These supplementary comparisons preserve the primary split, corpus, targets, scoring, and Gate 3 reference and threshold.
+The campaign ends with measured comparisons and a recommendation for one next experiment; it does not authorize new losses, spatial inputs, or reserved-test evaluation.
+
 Deliver:
 
 - compact GRU training and resume;
@@ -768,4 +774,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 is approved and in progress. Implement and verify the compact temporal learner. Preserve the frozen corpus, split, feature definitions, preprocessing, metrics, and Gate 3 success criterion. Keep reserved-test targets closed during development. Freeze the model choice before final test evaluation. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 is approved and in progress. Complete the bounded baseline-and-diagnosis campaign in PROGRESS.md, then recommend one next experiment. Preserve the frozen primary experiment and fit each earlier fold's preprocessing on its own training data only. Keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
