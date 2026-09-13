@@ -17,10 +17,10 @@ Milestone 0 and [Gate 0](SPEC.md#milestone-0--minimal-scaffold) are complete.
 The scaffold uses Python 3.14 and requires the AMD GPU through the main Compose service.
 The RX 7900 XTX passed tensor and gradient checks in this service.
 A synthetic GRU forward pass, backward pass, and optimizer step also passed on this GPU.
-Milestone 1 is implemented and demonstrated on the supplied Norway history file. Training remains unimplemented.
-Gate 1 and the full Norway build are approved. Milestone 2 is in progress.
+Milestones 1 and 2 are complete, including the full Norway corpus and [Gate 2 decisions](SPEC.md#gate-2-decisions--frozen-2026-09-13).
+The real Norway sample loader passed GPU acceptance. Training remains unimplemented.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
-This domain and period must not enter the reserved test partition.
+The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
 
 ## Prototype priorities
 
@@ -48,10 +48,12 @@ Spatial context, continual learning, live updates, and an inspection application
 - Raw edits, semantic additions/removals, mapped state, and net state change remain separate, including child-induced geometry movement.
 - Synthetic tests protect change counting, historical geometry, month boundaries, missing geometry, and Parquet availability semantics.
 - A bounded corpus builder streams entities and stores compact node/way reference arrays. Shared references supply geometry without duplicate feature contributions.
-- Completed batches survive interruption. A real development restart preserved 22 completed batches and reproduced the original 2023 features.
+- Completed batches survive interruption. The Norway resume preserved all 951 completed batches; development builds reproduced the original 2023 features.
 - `configs/split.yaml` fixes the domain, temporal partitions, geographic holdouts, neighbouring-cell buffers, and Kristiansand exclusion before new target summaries.
 - A PyTorch dataset supplies 24-month inputs, six-month change targets, calendar encodings, and availability masks. Synthetic checks protect alignment and training-only input scaling.
-- A real development batch passed GPU loading on the RX 7900 XTX: inputs `(32, 24, 104)`, targets `(32, 6, 37)`, and boolean target masks.
+- The completed Norway corpus contains 132 monthly Parquet files with 1,906,872 unique cell-month rows and consistent feature availability.
+- A real Norway batch passed GPU loading on the RX 7900 XTX: inputs `(32, 24, 104)`, targets `(32, 6, 37)`, and boolean target masks.
+- Saved input preprocessing uses unique training input cell-months only. Development summaries cover training and both validation groups, without reserved-test target summaries.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 These capabilities establish runtime and input-preparation readiness. They provide no evidence of predictive skill or useful learned representations.
@@ -60,7 +62,7 @@ These capabilities establish runtime and input-preparation readiness. They provi
 
 - [x] **Milestone 0 — GPU scaffold:** standard Compose image, GPU `atlas doctor`, locked dependencies, development checks, startup instructions, and CLI smoke test.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
-- [ ] **Milestone 2 — Norway corpus:** produce cell-month Parquet data, fixed temporal and geographic splits, development summaries, and a PyTorch data loader.
+- [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [ ] **Milestone 3 — Baselines:** compare zero change, recent-rate persistence, and boosted trees, then set the minimum worthwhile neural improvement.
 - [ ] **Milestone 4 — Temporal learner:** resumable GRU training, exported embeddings, model and representation comparisons, repeated seeds, and final test evaluation.
 
@@ -76,7 +78,64 @@ The first comparison needs validation results against the strongest implemented 
 A promising configuration needs two additional seeds.
 The final reserved-test evaluation follows the frozen model choice.
 
-## Historical-data evidence
+## Norway corpus evidence
+
+The full corpus is in `data/derived/norway-2015-2025/`.
+It contains 14,446 fixed H3 resolution-6 cells across 132 complete months from January 2015 through December 2025.
+All 1,906,872 rows passed date, cell, schema, dtype, availability, and finite-value checks.
+Each month contains every fixed cell, including empty cells and geographic buffers.
+Source coverage is declared for every month; individual geometry omissions retain numeric subset features under [Section 7](SPEC.md#7-exact-meaning-of-change).
+
+The build processed 236,469,054 nodes, 13,431,132 ways, and 889,140 relations.
+It took about 8 hours 26 minutes of wall time, including one corrective resume, and reached 4,153 MiB of peak process memory.
+Outputs and reference arrays occupy 15.27 GiB; the monthly Parquet files themselves use about 54 MiB.
+The two geometry counters are 306,205,228 attempted and 1,548,549 skipped assignments.
+These counters include candidates outside the study cells and do not measure cell-level completeness.
+Some polygon assembly calls emitted numerical warnings. The resulting corpus passed all finite-value and structural checks.
+
+The fixed domain uses the Natural Earth land boundary for mainland Norway, Svalbard, and Jan Mayen.
+Geographic groups contain 11,469 training cells, 980 validation cells, 1,002 reserved-test cells, and 995 buffer cells.
+Every previously inspected Kristiansand cell remains excluded from reserved testing.
+Actual loader counts are:
+
+| Partition | Samples |
+| --- | ---: |
+| Training | 768,423 |
+| Temporal validation | 217,911 |
+| Geographic validation | 18,620 |
+| Reserved temporal test | 80,234 |
+| Reserved geographic test | 7,014 |
+
+The reserved-test checks covered only structure, dates, eligibility, and tensor loading.
+They did not inspect target distributions, predictions, or model metrics.
+`preprocessing.npz` contains the saved training-input statistics. `development-summary.json` contains only training and validation target summaries, plus structural sample counts.
+
+Development summaries contain 825,768 training cell-months, 275,256 temporal-validation cell-months, and 23,520 geographic-validation cell-months.
+Selected zero-value percentages show the natural sparsity:
+
+| Target | Training | Temporal validation | Geographic validation |
+| --- | ---: | ---: | ---: |
+| Raw creations | 83.34% | 86.32% | 85.20% |
+| Raw modifications | 80.52% | 81.04% | 79.15% |
+| Building additions | 96.93% | 98.77% | 98.72% |
+| Road-path additions | 96.18% | 96.84% | 96.30% |
+| Net building area | 96.50% | 98.18% | 98.11% |
+| Net road length | 92.71% | 92.95% | 91.97% |
+
+Training building additions average 3.158 per cell-month, compared with 0.062 in temporal validation.
+Rare training bursts reach 165,570 raw creations in a cell-month; net land-use area changes reach about 875 million square metres in magnitude.
+Whole geometries are assigned to one primary cell, so an assigned area can exceed the cell's area.
+Area and length changes also contain sub-unit values. The occurrence definition excludes those values, while magnitude scoring retains them.
+
+This evidence supports retaining the small taxonomy, using signed-log targets with squared-error loss, and measuring both magnitude and occurrence.
+The exact transforms, weighting, and primary metrics are frozen in [Gate 2](SPEC.md#gate-2-decisions--frozen-2026-09-13).
+Their usefulness remains a question for the baseline experiment; no predictive result has been demonstrated.
+
+The Geofabrik source contains versions from April 2005 through August 2026 and lacks a replication timestamp header.
+Coverage therefore remains an explicit declaration in `configs/norway.toml`, starting in 2008; the completed experiment uses only 2015–2025.
+The reader retains the latest version before the build start and rejects timestamp reversals that affect the retained timeline.
+
+## Development-slice evidence
 
 The Geofabrik Norway history file was reduced to a buffered Kristiansand extract with Osmium's history-aware `complete_ways` strategy.
 The 22.2 MiB extract took 17 seconds to create, with about 7.3 GB of peak extraction memory.
@@ -90,6 +149,9 @@ These counters include objects outside the study cells in the buffered extract; 
 Net state change and semantic totals differ for land use and other POIs in this slice.
 A manual reconciliation attributed those differences entirely to omitted transitions with unreconstructable geometry, consistent with the required subset semantics.
 
+The bounded builder matched all 156 original rows and all 51 features.
+The 2015–2025 development pilot produced 1,716 rows, preserved 22 completed batches on restart, and again matched the original 2023 features.
+
 Manual development examples matched the intended semantics:
 
 - Way `1126183431`, version 1, created a 51.3 m path on 2023-01-01: one raw creation and one semantic road-path addition.
@@ -99,34 +161,9 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
-Milestone 2 still needs the completed Norway build, acceptance of a Norway corpus batch, development target summaries, and Gate 2 decisions.
-The fixed Natural Earth land boundary contains 14,446 H3 resolution-6 cells across mainland Norway, Svalbard, and Jan Mayen.
-Geographic groups contain 11,469 training cells, 980 validation cells, 1,002 reserved-test cells, and 995 buffer cells.
-The loader excludes the previously inspected Kristiansand cells from reserved temporal testing as well.
+No Milestone 2 blocker remains. The next decision is approval to implement [Milestone 3](SPEC.md#milestone-3--baselines).
+That milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
 
-The bounded 2023 pilot matched all 156 original rows and 51 features, taking 103 seconds with 1,032 MiB peak memory and 95 MiB of intermediate/output files.
-The 2015–2025 development pilot produced 1,716 rows and used 128 MiB of files. Its peak before interruption was 1,879 MiB.
-Its resumed build preserved completed partitions and again matched every 2023 feature against the original builder.
-These measurements support a full Norway attempt within the roughly 15.2 GiB Docker memory limit and 48 GiB of available repository storage.
-Actual Norway resource use must still be checked as the run progresses.
-
-Docker Desktop can pass `/dev/dxg` into the container. The agent process does not need direct access to this device.
-The main Compose service passed GPU runtime checks with Adrenalin 26.8.1, PyTorch 2.14.0, and ROCm 7.2.
-The image includes the C++ headers that MIOpen needs to compile GRU kernels at runtime.
-The ROCm profiler aborts on WSL because it expects Linux KFD interfaces.
-Compose disables profiler registration with `ROCPROFILER_REGISTER_ENABLED=0`; GPU calculations remain enabled.
-This small runtime check does not establish training speed or stability during long runs.
-
-Gate 1 can retain Geofabrik full history, Osmium extraction, and the direct pyosmium reader.
-The source contains versions from 2006 through August 2026, but complete early history is not guaranteed before the 2007 API transition.
-The configuration conservatively declares coverage from 2008 and this run demonstrates the 2023 slice only.
-The file lacks a replication timestamp header, so source coverage remains an explicit configuration declaration.
-
-The small taxonomy and primary-cell implementation are documented in the README and follow [Section 7](SPEC.md#7-exact-meaning-of-change).
-Incomplete relations, nested relation members, nested same-role rings, and invalid geometries are omitted under the specified subset semantics.
-
-The Milestone 1 in-memory reader must not receive the full 2.1 GiB Norway file.
-A rough linear estimate from compressed size suggests hundreds of GiB of memory and several hours per year for an unpartitioned build.
-This estimate is coarse: geometry complexity and compression vary by region, and extraction adds references outside the requested area.
-The corpus builder instead streams bounded entity batches and resolves complete historical references from local array files.
-This avoids the boundary omissions that simple geographic cuts could introduce under the primary-cell rule.
+GPU runtime and batch acceptance establish readiness for training, but not its speed, stability, or predictive value.
+Geometry omissions and the approximate study boundary remain limitations of the fixed experiment, as described in the specification.
+Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.

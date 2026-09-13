@@ -12,6 +12,6 @@ Prediction is only part of the aim. Atlas will also learn compact representation
 
 Success requires evidence. Predictions must improve on sensible simple baselines, and the learned representations must add value beyond a basic compression of the same inputs. Evaluation uses future periods and geographic areas kept separate from training. A model that adds no useful signal is a valid result too.
 
-Atlas is a small proof of concept. Historical data preparation is underway; predictive skill and useful learned representations have not yet been demonstrated. The [specification](SPEC.md) defines the experiment, and the [roadmap](PROGRESS.md) records what works and what remains.
+Atlas is a small proof of concept. The first Norway history dataset is prepared; predictive skill and useful learned representations have not yet been demonstrated. The [specification](SPEC.md) defines the experiment, and the [roadmap](PROGRESS.md) records what works and what remains.
 
 OSM data: © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the Open Database License (ODbL). The study boundary comes from [Natural Earth](https://www.naturalearthdata.com/).

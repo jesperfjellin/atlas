@@ -3,7 +3,7 @@
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
 **Version:** 0.3\
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 ## 1. How to use this specification
 
@@ -125,13 +125,14 @@ An event at a month boundary belongs to the new month.
 
 Use complete calendar months only. Do not use partial months for inputs or targets.
 
-**PROVISIONAL defaults:**
+**LOCKED at Gate 2:**
 
 - H3 resolution: 6;
 - input window: 24 complete months;
 - prediction window: the following 6 complete months;
-- initial geography: Norway;
-- initial model family: a compact GRU encoder with prediction heads.
+- initial geography: Norway.
+
+**PROVISIONAL:** a compact GRU encoder with prediction heads, as described in Section 10.
 
 These are ordinary configuration values, but do not build a generic configuration framework around them.
 
@@ -364,14 +365,26 @@ If a simple seasonal mean is obviously useful after looking at development data,
 
 ### 9.2 Metrics
 
-At Gate 2, select a small primary metric set using development data. It should normally contain:
+**LOCKED at Gate 2:** use two primary metrics on the natural, unresampled evaluation samples.
 
-- one magnitude metric for count or continuous targets;
-- one occurrence metric for whether a broad change type happens;
-- results by forecast month;
-- an aggregate result and enough per-family detail to notice a completely failed target family.
+**Magnitude:** root mean squared error after the signed-log transform `g(y) = sign(y) * log1p(abs(y))`.
+Net targets retain their sign. Predictions for raw and semantic count targets are clamped to a minimum of zero before scoring.
+For each target and forecast month, average squared transformed errors over samples with an available target.
+Average those errors equally across targets within each of the three change families, then equally across families and forecast months.
+Take the square root after averaging. Lower is better.
 
-Avoid dozens of metrics and elaborate dashboards.
+**Occurrence:** non-interpolated [average precision](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.average_precision_score.html).
+An occurrence means `abs(y) >= 1` in the original unit: one entity, one square metre, or one metre.
+This definition excludes sub-unit changes from the occurrence label; raw targets and magnitude scoring retain them.
+Rank samples by `abs(g(prediction))`, using the same count projection as magnitude scoring.
+Group tied scores. Compute average precision separately for each target and forecast month, then average within families and equally across families and forecast months.
+Higher is better. A target/month combination without positives is reported as unavailable and excluded from this average, with its support reported.
+No binary prediction threshold is tuned for this metric.
+
+Report temporal and geographic evaluation separately.
+Each needs the two aggregate scores, scores for each of the six forecast months, and the three target-family scores.
+Unavailable targets are masked. Empty metric groups are reported as unavailable, never as zero.
+Do not add dozens of metrics or an evaluation framework.
 
 ### 9.3 Success-threshold timing
 
@@ -420,7 +433,26 @@ Required capabilities:
 - basic NaN/Inf detection;
 - saved validation metrics.
 
-Inspect development target distributions before choosing loss functions. Poisson or negative-binomial losses are candidates for counts; a transformed Huber loss is a candidate for continuous area or length targets. This is a Gate 2 decision, not a reason to build pluggable loss architecture.
+### 10.1 Frozen transforms and loss
+
+**LOCKED at Gate 2:** apply `g(x) = sign(x) * log1p(abs(x))` to the 51 numeric input features.
+Standardize each transformed feature using its training-input mean and standard deviation.
+Fit these statistics once per unique training input cell-month, excluding all geographic holdouts and buffers.
+For this split, the fitting interval is January 2015 through June 2022.
+Use scale one when a standard deviation is below `1e-6`.
+Unavailable inputs become zero after normalization and retain a false availability indicator.
+Calendar encodings and availability indicators are not standardized.
+
+Use the same signed-log transform for all 37 change targets, without target standardization or clipping observed values.
+Nonnegative counts therefore use ordinary `log1p`; net changes retain their sign.
+Train point forecasts with masked squared error in this transformed space, with the same equal family and forecast-month weighting as the magnitude metric.
+The loader supplies raw targets and masks; training and scoring apply the target transform.
+Decode transformed predictions with `sign(z) * expm1(abs(z))`, clamping predictions for raw and semantic count targets to a minimum of zero.
+
+Development data contains many zero months and rare large bursts across counts, areas, and lengths.
+The logarithm reduces the influence of their original units and extreme magnitudes.
+Squared error rewards conditional mean forecasts in transformed space, while average precision checks whether forecasts rank future occurrences usefully.
+This is one fixed point-forecast loss, without separate distributional heads or a pluggable loss system.
 
 ## 11. Technology and repository shape
 
@@ -601,6 +633,22 @@ Do not produce a report site, dataset registry, quality database, or publication
 
 **Gate 2:** freeze the cell resolution, time windows, taxonomy/features, target definitions, split, transforms/loss family, and primary metrics. Do **not** freeze the numeric success threshold yet.
 
+#### Gate 2 decisions — frozen 2026-09-13
+
+**LOCKED:** the completed Norway corpus and experiment use:
+
+- H3 resolution 6, with the fixed cell centres inside [configs/norway.geojson](configs/norway.geojson). The Natural Earth land boundary covers mainland Norway, Svalbard, and Jan Mayen; Bouvet is outside the source extract. The coastline is approximate.
+- Complete months from January 2015 through December 2025, with 24 input months and six following target months.
+- The ten-category taxonomy and geometry rules in Section 7. The ordered `FEATURE_NAMES` in [features.py](src/atlas/features.py) contain 51 features: 3 raw edits, 20 semantic additions/removals, 14 closing-state features, and 14 net changes.
+- All 51 features as inputs, plus two calendar encodings and 51 availability indicators: 104 input channels. The 37 non-state features are targets, preserving the 3 raw, 20 semantic, and 14 net target groups. No activity-based feature or cell filtering.
+- [configs/split.yaml](configs/split.yaml), fixed before target inspection: training targets in 2017–2022, validation in 2023–2024, and reserved testing in 2025. Geographic validation uses the validation years and geographic testing uses the test year.
+- The split's H3 resolution-3 parent holdouts, seed `20260912`, and one-ring geographic buffers. Holdout cells remain excluded from training at every date. Temporal evaluation uses training-group cells; geographic evaluation uses its held-out group.
+- All listed Kristiansand development cells excluded from reserved testing at every date. Every sample's complete target window stays inside its partition. The loader's cutoff label names the last observed month; forecasting begins in the following month.
+- Training-only input preprocessing, signed-log targets, and the squared-error loss in Section 10.1. Primary metrics and aggregation follow Section 9.2.
+
+The acceptance evidence and development summaries are recorded in [PROGRESS.md](PROGRESS.md#norway-corpus-evidence).
+The numeric worthwhile-improvement threshold remains a Gate 3 decision, before neural training.
+
 ### Milestone 3 — Baselines
 
 Deliver the zero-change, recent-rate, and boosted-tree baselines using the frozen development split and metrics.
@@ -638,14 +686,10 @@ Each later addition needs a short new scope decision. Do not prebuild any of it.
 
 ## 16. Explicitly deferred decisions
 
-Do not resolve these during Milestone 0:
+The source, usable years, taxonomy, cell resolution, splits, transforms, loss family, and primary metrics are frozen at Gates 1 and 2.
+The following decisions remain **DEFERRED**:
 
-- historical OSM source and exact usable years;
-- final taxonomy;
-- final H3 resolution;
-- train/validation/test dates and geographic groups;
-- loss functions and target transforms;
-- numeric success threshold;
+- numeric success threshold until Gate 3;
 - neighbouring or multi-scale inputs;
 - GNN architecture;
 - continual-learning algorithm;
@@ -674,4 +718,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Implement Milestone 2 through Gate 2. Gate 1 and the full Norway build are approved. Use complete months from 2015 through 2025, with training targets in 2017–2022, validation in 2023–2024, and reserved temporal testing in 2025. Preserve the Kristiansand development exclusion. Complete the Norway corpus, PyTorch loader, leakage checks, and GPU batch acceptance before freezing Gate 2 decisions. Do not implement baselines, neural training, or supporting frameworks.
+> Milestone 2 and Gate 2 are complete. Preserve the frozen corpus, split, feature definitions, preprocessing, loss family, and primary metrics. Milestone 3 is next and requires owner approval before implementation. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks.
