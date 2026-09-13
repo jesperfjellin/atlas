@@ -442,6 +442,13 @@ Required capabilities:
 - basic NaN/Inf detection;
 - saved validation metrics.
 
+The first approved run uses [configs/gru.toml](configs/gru.toml): one 64-unit GRU layer and a linear six-month prediction head.
+AdamW trains on shuffled, unresampled training windows, with gradient clipping.
+Full temporal-validation signed-log RMSE selects the best epoch and controls early stopping. Geographic validation is scored separately.
+The linear head learns unconstrained transformed means; count predictions are projected to zero or above for scoring and export.
+`atlas train --config` saves `latest.pt`, `best.pt`, an epoch log, validation metrics, and Parquet forecasts with embeddings.
+Resume the same run with `--resume <run-directory>/latest.pt`. An interrupted epoch restarts from the last completed epoch.
+
 ### 10.1 Frozen transforms and loss
 
 **LOCKED at Gate 2:** apply `g(x) = sign(x) * log1p(abs(x))` to the 51 numeric input features.
@@ -670,7 +677,7 @@ Keep the evaluation output to a compact table plus saved metrics.
 
 **LOCKED:** the reference is the completed OpenCL LightGBM run in `runs/baselines-norway-opencl/`, configured by [configs/baselines.toml](configs/baselines.toml).
 Its saved models outperform zero change and recent-rate persistence on both primary metrics in both validation groups.
-The [baseline evidence](PROGRESS.md#current-model-evidence) supports proceeding to the compact temporal learner, subject to Milestone 4 approval.
+The [baseline evidence](PROGRESS.md#current-model-evidence) supports the approved compact temporal learner experiment.
 It does not establish useful neural representations or forecasts for individual places within a cell.
 
 A worthwhile neural forecast must meet both conditions separately on temporal and geographic validation:
@@ -752,4 +759,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 3 and Gate 3 are complete. Milestone 4 is the next experiment and awaits owner approval. Preserve the frozen corpus, split, feature definitions, preprocessing, metrics, and Gate 3 success criterion. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks before that approval.
+> Milestone 4 is approved and in progress. Implement and verify the compact temporal learner. Preserve the frozen corpus, split, feature definitions, preprocessing, metrics, and Gate 3 success criterion. Keep reserved-test targets closed during development. Freeze the model choice before final test evaluation. Milestone 5 remains deferred until Gate 4.

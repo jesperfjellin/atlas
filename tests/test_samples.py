@@ -66,6 +66,10 @@ def test_windows_align_columns_calendar_and_masks_without_future_inputs(
     assert inputs[0, 0] == inputs[0, 53] == 0
     assert inputs[0, 51] == 0 and inputs[0, 52] == 1
     assert not mask[0, 2] and targets[0, 2] == 0
+    batch_targets, batch_mask = dataset.target_batch(np.array([67, 0]))
+    np.testing.assert_array_equal(batch_targets[1], targets.numpy())
+    np.testing.assert_array_equal(batch_mask[1], mask.numpy())
+    assert not batch_targets[0].any() and batch_mask[0].all()
     original = inputs.clone()
     corpus.values[0, 24:] = 5e7
     assert torch.equal(dataset[0]["inputs"], original)

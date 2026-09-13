@@ -165,7 +165,7 @@ class WindowDataset(Dataset[Sample]):
         return len(self.positions) * len(self.starts)
 
     def input_batch(self, indices: np.ndarray) -> np.ndarray:
-        """Build the same permitted inputs in batches for tree fitting/inference."""
+        """Build the same permitted inputs for neural and tree models."""
         if indices.ndim != 1 or ((indices < 0) | (indices >= len(self))).any():
             raise IndexError("Input batch indices fall outside this partition.")
         cells = np.asarray(self.positions)[indices // len(self.starts)]
@@ -179,6 +179,18 @@ class WindowDataset(Dataset[Sample]):
         return np.concatenate(
             (np.where(valid, normalized, 0), self.calendar[months], valid), axis=-1
         ).astype(np.float32)
+
+    def target_batch(self, indices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Return raw targets and masks in exactly the input batch's order."""
+        if indices.ndim != 1 or ((indices < 0) | (indices >= len(self))).any():
+            raise IndexError("Target batch indices fall outside this partition.")
+        cells = np.asarray(self.positions)[indices // len(self.starts)]
+        starts = np.asarray(self.starts)[indices % len(self.starts)]
+        months = starts[:, None] + np.arange(self.corpus.split.target_months)
+        return (
+            self.corpus.values[cells[:, None], months][:, :, TARGET_COLUMNS],
+            self.corpus.available[cells[:, None], months][:, :, TARGET_COLUMNS],
+        )
 
     def __getitem__(self, index: int) -> Sample:
         if not 0 <= index < len(self):

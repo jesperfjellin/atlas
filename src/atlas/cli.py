@@ -77,6 +77,9 @@ def main() -> int:
         "train-baselines", help="Fit and compare the three development baselines."
     )
     baselines.add_argument("--config", required=True, type=Path)
+    learner = commands.add_parser("train", help="Train and validate the temporal GRU.")
+    learner.add_argument("--config", required=True, type=Path)
+    learner.add_argument("--resume", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "doctor":
@@ -85,10 +88,14 @@ def main() -> int:
             from atlas.dataset import build_dataset
 
             build_dataset(args.config)
-        else:
+        elif args.command == "train-baselines":
             from atlas.baselines import train_baselines
 
             train_baselines(args.config)
+        else:
+            from atlas.training import train
+
+            train(args.config, args.resume)
     except (
         ImportError,
         OSError,

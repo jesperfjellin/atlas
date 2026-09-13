@@ -20,7 +20,7 @@ A synthetic GRU forward pass, backward pass, and optimizer step also passed on t
 Milestones 1 and 2 are complete, including the full Norway corpus and [Gate 2 decisions](SPEC.md#gate-2-decisions--frozen-2026-09-13).
 The real Norway sample loader passed GPU acceptance.
 Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are complete. Boosted trees are the strongest baseline on both validation groups and primary metrics.
-Milestone 4 awaits approval. Neural training remains unimplemented.
+Milestone 4 is approved and in progress. Resumable GRU training passed short GPU acceptance; the first full training run is underway.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
 
@@ -62,6 +62,10 @@ Spatial context, continual learning, live updates, and an inspection application
 - The complete OpenCL run fitted 222 target/horizon models using all 768,423 training samples and scored both natural validation groups.
 - Resuming the completed run reused all 222 saved models without changing their files and reproduced the aggregate validation scores.
 - A small checkpoint check rejects tree updates outside the bounds permitted by the squared loss and observed training labels.
+- `atlas train --config` fits a compact GRU on shuffled training windows and selects the best epoch using full temporal-validation magnitude error.
+- Neural training saves atomic `latest.pt` and `best.pt` checkpoints, including optimizer state, epoch, step, early stopping state, configuration, and random state. `--resume` continues from `latest.pt`.
+- The learner exports validation embeddings and six-month forecasts as Parquet, keyed by cell and cutoff, with the frozen target order and signed-log units recorded.
+- Short GPU acceptance trained on 4,096 real examples and exported 304 development predictions and embeddings. A resumed optimizer update matched uninterrupted training; validation RMSE matched the frozen scorer.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -108,7 +112,9 @@ The replacement uses OpenCL with double-precision histograms. It reuses only the
 All replacement tree checkpoints were fitted anew.
 
 This evidence concerns aggregate mapping activity within H3 resolution-6 areas. It does not locate individual changes within those areas or distinguish construction from later mapping.
-No neural-model results or embedding comparisons are available. Milestone 4 must compare its representations with dimension-matched PCA as well as meeting the forecast criterion.
+The first GRU uses one layer, 64 embedding values, and 47,070 parameters, configured in `configs/gru.toml`.
+The full run in `runs/gru-norway-64-seed20260913/` uses all training windows and early stopping on temporal validation.
+No complete neural comparison or embedding analysis is available yet. Milestone 4 must compare its representations with dimension-matched PCA as well as meeting the forecast criterion.
 The final reserved-test evaluation follows the frozen model choice; reserved-test targets have not been inspected during baseline development.
 
 ## Norway corpus evidence
@@ -193,9 +199,9 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
-There is no remaining Milestone 3 blocker. The next decision is approval of [Milestone 4](SPEC.md#milestone-4--first-temporal-learner).
-The baseline evidence supports that experiment, and Gate 3 fixes its forecast success criterion before neural training.
+There is no remaining Milestone 3 blocker. [Milestone 4](SPEC.md#milestone-4--first-temporal-learner) is approved and in progress.
+The baseline evidence supports this experiment, and Gate 3 fixes its forecast success criterion before neural training.
 
-The OpenCL GPU baseline run is complete. A small GRU optimizer step has passed, but full neural training speed, stability, and predictive value remain unmeasured.
+The OpenCL GPU baseline run is complete. Short GRU training, resume, and export passed GPU acceptance. Full neural training speed, stability, and predictive value are being measured.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.
