@@ -160,6 +160,32 @@ def sample_keys(dataset: WindowDataset, indices: np.ndarray) -> dict[str, list[s
     }
 
 
+def score_predictions(
+    dataset: WindowDataset, predictions: torch.Tensor
+) -> dict[str, object]:
+    """Apply the existing scorer to aligned, transformed multi-output forecasts."""
+    if predictions.shape != (len(dataset), 6, len(TARGET_NAMES)):
+        raise ValueError("Predictions do not match this evaluation dataset.")
+    scores = Scores()
+    for h in range(6):
+        for c, name in enumerate(TARGET_NAMES):
+            target, mask = (
+                torch.as_tensor(v, device=predictions.device)
+                for v in target_column(dataset, h, c)
+            )
+            scores.record(
+                h,
+                c,
+                score_column(
+                    target,
+                    predictions[:, h, c],
+                    mask,
+                    count_target=not name.startswith("net_"),
+                ),
+            )
+    return {"samples": len(dataset), **scores.summary()}
+
+
 @torch.inference_mode()
 def evaluate_model(
     model: TemporalGRU,
@@ -214,24 +240,9 @@ def evaluate_model(
                     schema=schema,
                 )
             )
-    scores = Scores()
-    for h in range(6):
-        for c, name in enumerate(TARGET_NAMES):
-            target, mask = (
-                torch.as_tensor(v, device=device) for v in target_column(dataset, h, c)
-            )
-            scores.record(
-                h,
-                c,
-                score_column(
-                    target,
-                    predictions[:, h, c],
-                    mask,
-                    count_target=not name.startswith("net_"),
-                ),
-            )
+    scores = score_predictions(dataset, predictions)
     temporary.replace(destination)
-    return {"samples": len(dataset), **scores.summary()}
+    return scores
 
 
 def train(config_path: Path, resume: Path | None = None) -> None:

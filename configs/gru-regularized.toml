@@ -1,0 +1,15 @@
+dataset = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
+output = "../runs/gru-norway-64-regularized-seed20260913"
+
+[training]
+hidden_size = 64
+layers = 1
+batch_size = 512
+epochs = 60
+patience = 8
+learning_rate = 0.0003
+weight_decay = 0.01
+gradient_clip = 1.0
+seed = 20260913

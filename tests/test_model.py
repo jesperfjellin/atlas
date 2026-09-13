@@ -83,3 +83,26 @@ def test_checkpoint_restores_embedding_optimizer_and_next_update(
         torch.testing.assert_close(actual, expected)
     with pytest.raises(ValueError):
         restore_checkpoint(path, resumed, resumed_optimizer, {"seed": 84})
+
+
+def test_linear_probe_masks_each_target_and_fits_scaling_on_training_rows() -> None:
+    from atlas.embeddings import fit_probe
+
+    x = torch.linspace(-2, 2, 21, dtype=torch.float64)
+    representation = torch.stack((x, torch.ones_like(x)), dim=1)
+    expected = torch.stack((3 * x + 0.5, 1 - x, x), dim=1)
+    raw = expected.sign() * expected.abs().expm1()
+    mask = torch.ones_like(raw, dtype=torch.bool)
+    mask[:4, 0] = False
+    mask[:, 2] = False
+    raw[~mask] = float("nan")
+    probe = fit_probe(representation, raw, mask, ridge=1e-8)
+    assert probe.mean[0].item() == pytest.approx(0, abs=1e-12)
+    assert probe.scale[1] == 1
+    prediction = probe.predict(torch.tensor([[3.0, 1.0]], dtype=torch.float64))
+    torch.testing.assert_close(
+        prediction,
+        torch.tensor([[9.5, -2.0, 0.0]], dtype=torch.float64),
+        atol=1e-6,
+        rtol=1e-6,
+    )

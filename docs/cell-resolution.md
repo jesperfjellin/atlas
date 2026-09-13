@@ -10,7 +10,7 @@ Targeted changes to spatial assignment or memory handling may be needed; do not 
 
 ## Code and configuration to inspect
 
-These entry points describe the completed Milestone 3 implementation. Locate their equivalents if the code has moved.
+These are the current entry points. Locate their equivalents if the code has moved.
 
 | Concern | Current location |
 | --- | --- |
@@ -20,6 +20,7 @@ These entry points describe the completed Milestone 3 implementation. Locate the
 | Entity-to-cell assignment and accumulation | `assign()` in [`features.py`](../src/atlas/features.py), [`accumulate.py`](../src/atlas/accumulate.py) |
 | Input normalization and temporal samples | `CellMonths`, `Preprocessing`, and `WindowDataset` in [`samples.py`](../src/atlas/samples.py) |
 | Baseline inputs, caches, and output paths | [`configs/baselines.toml`](../configs/baselines.toml), [`baselines.py`](../src/atlas/baselines.py) |
+| Neural training, checkpoints, and embeddings | [`configs/gru.toml`](../configs/gru.toml), [`training.py`](../src/atlas/training.py), [`embeddings.py`](../src/atlas/embeddings.py) |
 
 ## Procedure
 
@@ -49,6 +50,7 @@ These entry points describe the completed Milestone 3 implementation. Locate the
    Use a fixed development area to check assignments, cross-cell transitions, row counts, and resource use before a full Norway build.
    Measure peak memory and runtime for corpus publication, loading, and a small GPU training run.
    `write_corpus()`, `CellMonths.read()`, and baseline `gpu_inputs()` currently allocate arrays across entire cell or validation sets.
+   Neural scoring and embedding checks also retain predictions or representations across an evaluation set.
    More cells can require bounded loading at these points even though the model's per-sample feature dimensions stay the same.
 
 5. **Rebuild from the original history.** Use the existing `.osh.pbf` file and the new corpus configuration through Compose:
@@ -70,7 +72,7 @@ These entry points describe the completed Milestone 3 implementation. Locate the
    Derive cell counts and sample counts from the new dataset; do not carry over the current Norway counts as constants.
 
 7. **Retrain and establish a new benchmark.** Point the new baseline configuration's `dataset`, `split`, `preprocessing`, and `output` fields to the new paths.
-   Use the existing Compose baseline command with that configuration, followed by the approved neural training workflow when it exists.
+   Use the existing Compose baseline command with that configuration, followed by `atlas train --config` with a new neural configuration.
    Do not reuse old normalization files, LightGBM bins, checkpoints, predictions, or embeddings as outputs of the new experiment.
    Run all three baselines again. Scores at different resolutions describe different targets and are not directly comparable as model improvements.
    Reapply the approved relative success criterion against the new baselines; do not carry over the old absolute score values.

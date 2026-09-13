@@ -422,6 +422,15 @@ Initial embedding evaluation is deliberately small:
 
 UMAP plots and hand-labelled interpretations are exploratory evidence, not proof by themselves. Do not build a general embedding-analysis suite.
 
+`atlas explore-embeddings --run` implements these development checks on the AMD GPU.
+PCA and both ridge probes use the same 32,768 training windows, selected uniformly without replacement with seed `20260913`.
+This bounded subset is selected without target activity. Both complete validation groups remain unresampled.
+PCA has the same dimension as the GRU embedding. Both probes predict all transformed change targets, with training-fitted representation scaling and ridge strength `0.01`.
+The ridge penalty is relative to the observed sample count; intercepts are not penalized. Missing targets are masked separately.
+Neighbour queries use eligible temporal-validation cells nearest declared coordinates for Kristiansand, Oslo, and Tromsø.
+They compare different cells at the same final validation cutoff. The nearest eligible cell can lie outside the named city.
+Trajectory plots use two PCA axes fitted on training embeddings. Treat the plots and subset-based probe comparison as exploratory evidence.
+
 ## 10. Initial model
 
 **PROVISIONAL:** a compact GRU encoder with one or more small prediction heads.

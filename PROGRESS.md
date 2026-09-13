@@ -20,7 +20,9 @@ A synthetic GRU forward pass, backward pass, and optimizer step also passed on t
 Milestones 1 and 2 are complete, including the full Norway corpus and [Gate 2 decisions](SPEC.md#gate-2-decisions--frozen-2026-09-13).
 The real Norway sample loader passed GPU acceptance.
 Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are complete. Boosted trees are the strongest baseline on both validation groups and primary metrics.
-Milestone 4 is approved and in progress. Resumable GRU training passed short GPU acceptance; the first full training run is underway.
+Milestone 4 is approved and in progress. Training, resume, validation exports, and embedding checks are implemented.
+Two complete GRU development runs trail the tree baseline; their linear embedding probes also trail dimension-matched PCA.
+The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
 
@@ -66,6 +68,10 @@ Spatial context, continual learning, live updates, and an inspection application
 - Neural training saves atomic `latest.pt` and `best.pt` checkpoints, including optimizer state, epoch, step, early stopping state, configuration, and random state. `--resume` continues from `latest.pt`.
 - The learner exports validation embeddings and six-month forecasts as Parquet, keyed by cell and cutoff, with the frozen target order and signed-log units recorded.
 - Short GPU acceptance trained on 4,096 real examples and exported 304 development predictions and embeddings. A resumed optimizer update matched uninterrupted training; validation RMSE matched the frozen scorer.
+- Two full GRU runs used all 768,423 training samples and exported predictions and embeddings for all 236,531 validation samples.
+- Resuming the completed initial GRU run preserved both checkpoints and reproduced every saved validation metric.
+- `atlas explore-embeddings --run` compares GRU and dimension-matched PCA representations with ridge probes, same-cutoff nearest neighbours, and a few cell trajectories.
+- PCA, probe scaling, and probe fitting use the same fixed, target-independent training subset. Both complete validation groups remain unresampled.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -77,7 +83,7 @@ Neural forecasting gains and useful learned representations remain unproven.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** resumable GRU training, exported embeddings, model and representation comparisons, repeated seeds, and final test evaluation.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, and initial model/representation comparisons exist. Model selection, conditional seed repeats, frozen final choice, and reserved-test evaluation remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -112,10 +118,46 @@ The replacement uses OpenCL with double-precision histograms. It reuses only the
 All replacement tree checkpoints were fitted anew.
 
 This evidence concerns aggregate mapping activity within H3 resolution-6 areas. It does not locate individual changes within those areas or distinguish construction from later mapping.
-The first GRU uses one layer, 64 embedding values, and 47,070 parameters, configured in `configs/gru.toml`.
-The full run in `runs/gru-norway-64-seed20260913/` uses all training windows and early stopping on temporal validation.
-No complete neural comparison or embedding analysis is available yet. Milestone 4 must compare its representations with dimension-matched PCA as well as meeting the forecast criterion.
-The final reserved-test evaluation follows the frozen model choice; reserved-test targets have not been inspected during baseline development.
+The GRU uses one layer, 64 embedding values, and 47,070 parameters.
+Both exploratory runs use seed `20260913`, all training windows, and early stopping on full temporal-validation magnitude error:
+
+| Validation | GRU configuration | Signed-log RMSE | Average precision |
+| --- | --- | ---: | ---: |
+| Temporal | Initial | 0.741980 | 0.295818 |
+| Geographic | Initial | 0.713247 | 0.337843 |
+| Temporal | Lower learning rate, stronger weight decay | 0.740873 | 0.283862 |
+| Geographic | Lower learning rate, stronger weight decay | 0.709082 | 0.313142 |
+
+The initial run, [configs/gru.toml](configs/gru.toml), selected epoch 2 and stopped after epoch 8.
+The follow-up, [configs/gru-regularized.toml](configs/gru-regularized.toml), selected epoch 1 and stopped after epoch 9.
+It changed the learning rate from `0.001` to `0.0003` and weight decay from `0.0001` to `0.01`, retaining the architecture.
+Training loss continued to fall while validation error rose. These curves suggest early overfitting under the frozen split.
+Neither run beats the reference trees on either primary metric in either validation group, so neither meets Gate 3.
+The follow-up slightly reduces magnitude error relative to the initial GRU but worsens occurrence ranking.
+No additional seeds have been run because neither configuration is promising under the frozen criterion.
+
+Artifacts are in `runs/gru-norway-64-seed20260913/` and `runs/gru-norway-64-regularized-seed20260913/`.
+Each directory contains configuration, epoch logs, latest/best checkpoints, full validation metrics, and keyed Parquet forecasts with embeddings.
+Epochs took roughly 27–30 seconds after the first epoch on the RX 7900 XTX.
+
+The [embedding check](SPEC.md#94-embedding-evaluation) uses the same 32,768 training windows for both 64-dimensional representations and their ridge probes:
+
+| Validation | Probe representation | Signed-log RMSE | Average precision |
+| --- | --- | ---: | ---: |
+| Temporal | Initial GRU | 0.746221 | 0.284587 |
+| Temporal | Follow-up GRU | 0.746059 | 0.289765 |
+| Temporal | PCA | **0.737280** | **0.306764** |
+| Geographic | Initial GRU | 0.720791 | 0.318198 |
+| Geographic | Follow-up GRU | 0.717890 | 0.327612 |
+| Geographic | PCA | **0.703244** | **0.336576** |
+
+PCA wins this bounded probe comparison. Useful added representation structure is not demonstrated.
+The initial GRU's inspected neighbours show some understandable grouping: the Oslo-area query matches other densely mapped cells, including a Trondheim-area cell.
+The eligible query north of Tromsø and its closest matches have few mapped buildings and little recent activity.
+This is exploratory interpretation from input months, not evidence of better prediction. The selected eligible cells do not necessarily cover the named city centres.
+Each run contains `embedding-checks.json`, fitted PCA/probe tensors, and `trajectories.png`/`trajectories.svg` for validation cutoffs from December 2022 through June 2024.
+
+The final neural model choice remains open. Reserved-test targets have not been inspected during baseline or neural development.
 
 ## Norway corpus evidence
 
@@ -202,6 +244,8 @@ Manual development examples matched the intended semantics:
 There is no remaining Milestone 3 blocker. [Milestone 4](SPEC.md#milestone-4--first-temporal-learner) is approved and in progress.
 The baseline evidence supports this experiment, and Gate 3 fixes its forecast success criterion before neural training.
 
-The OpenCL GPU baseline run is complete. Short GRU training, resume, and export passed GPU acceptance. Full neural training speed, stability, and predictive value are being measured.
+There is no tooling or GPU blocker. Both complete GRU runs are numerically stable, but neither provides the required forecast or representation improvement.
+The next model decision belongs within the current compact temporal-model scope. These results do not justify spatial-context implementation.
+Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.
