@@ -92,6 +92,19 @@ def binned_dataset(
     params: dict[str, int | float | str | bool],
     reference: lgb.Dataset | None = None,
 ) -> lgb.Dataset:
+    if reference is not None:
+        # LightGBM 4.7's Sequence/binary reference loaders omit GPU metadata and
+        # crash when attaching validation metrics. Its matrix loader initializes
+        # that metadata correctly. Only validation needs this dense host buffer.
+        values = np.empty((len(dataset), 24 * len(INPUT_NAMES)), dtype=np.float32)
+        for offset in range(0, len(dataset), 4096):
+            indices = np.arange(offset, min(offset + 4096, len(dataset)))
+            values[offset : offset + len(indices)] = dataset.input_batch(
+                indices
+            ).reshape(len(indices), -1)
+        return lgb.Dataset(
+            values, label=np.zeros(len(dataset)), params=params, reference=reference
+        ).construct()
     if path.exists():
         return lgb.Dataset(str(path), params=params, reference=reference).construct()
     result = lgb.Dataset(

@@ -76,9 +76,19 @@ The gates in the specification govern progression through this roadmap.
 
 ## Current model evidence
 
-No baseline scores, neural-model results, or embedding comparisons are available.
-Predictive skill and useful learned representations remain unproven.
-Synthetic learning checks and the Norway training pilot verify baseline execution; they do not measure held-out predictive skill.
+Zero change and recent-rate persistence have been evaluated on all 217,911 temporal-validation samples and 18,620 geographic-validation samples.
+Scores use the frozen signed-log RMSE and occurrence average precision:
+
+| Validation | Baseline | Signed-log RMSE | Average precision |
+| --- | --- | ---: | ---: |
+| Temporal | Zero change | 0.824629 | 0.057871 |
+| Temporal | Recent rate | 1.289597 | 0.162328 |
+| Geographic | Zero change | 0.787893 | 0.060463 |
+| Geographic | Recent rate | 1.219025 | 0.183421 |
+
+Recent activity improves occurrence ranking, but its arithmetic rate forecasts have larger magnitude errors than zero change.
+The boosted-tree comparison is incomplete. The first full training model has passed GPU fitting and validation.
+No neural-model results or embedding comparisons are available.
 
 The first comparison needs validation results against the strongest implemented baseline and a linear probe against dimension-matched PCA.
 A promising configuration needs two additional seeds.
@@ -168,12 +178,14 @@ Manual development examples matched the intended semantics:
 ## Blockers and next decisions
 
 [Milestone 3](SPEC.md#milestone-3--baselines) is approved.
-GPU baseline acceptance has passed. The full Norway validation comparison remains to be run.
+GPU baseline acceptance has passed. The full Norway boosted-tree comparison is incomplete; metrics and completed models are in `runs/baselines-norway/`.
 The milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
 
 The LightGBM command loads Torch's ROCm runtime first and enforces synchronous HIP launches.
 These settings avoid observed kernel-loading failures and unstable synthetic learning on this WSL setup.
 They apply to the baseline command; PyTorch's normal execution settings remain available for the later neural experiment.
+LightGBM's GPU reference loaders also require a dense validation matrix to initialize metrics correctly.
+Training retains its batched input loader and cached bins; the validation matrix needs about 2 GiB of temporary host memory.
 
 GPU runtime and batch acceptance establish readiness for training, but not its speed, stability, or predictive value.
 Geometry omissions and the approximate study boundary remain limitations of the fixed experiment, as described in the specification.
