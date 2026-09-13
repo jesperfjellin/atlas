@@ -23,7 +23,8 @@ Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are comple
 Milestone 4 is approved and in progress. Training, resume, validation exports, and embedding checks are implemented.
 Two complete GRU development runs trail the tree baseline; their linear embedding probes also trail dimension-matched PCA.
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. A linear state-and-activity-summary model nearly matches tree magnitude errors and improves occurrence ranking.
-The approved next work is the controlled nonlinear comparison of summaries with summaries plus ordered history, specified below.
+All four paired residual-MLP runs completed their 120-epoch schedules. None beats trees; their best checkpoints all come from epoch 2.
+The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -66,13 +67,17 @@ Spatial context, continual learning, live updates, and an inspection application
 - The complete OpenCL run fitted 222 target/horizon models using all 768,423 training samples and scored both natural validation groups.
 - Resuming the completed run reused all 222 saved models without changing their files and reproduced the aggregate validation scores.
 - A small checkpoint check rejects tree updates outside the bounds permitted by the squared loss and observed training labels.
-- `atlas train --config` fits a compact GRU on shuffled training windows and selects the best epoch using full temporal-validation magnitude error.
+- `atlas train --config` fits the compact GRU or approved residual MLPs on shuffled training windows and selects the best epoch using full temporal-validation magnitude error.
 - Neural training saves atomic `latest.pt` and `best.pt` checkpoints, including optimizer state, epoch, step, early stopping state, configuration, and random state. `--resume` continues from `latest.pt`.
 - The learner exports validation embeddings and six-month forecasts as Parquet, keyed by cell and cutoff, with the frozen target order and signed-log units recorded.
 - Short GPU acceptance trained on 4,096 real examples and exported 304 development predictions and embeddings. A resumed optimizer update matched uninterrupted training; validation RMSE matched the frozen scorer.
 - Two full GRU runs used all 768,423 training samples and exported predictions and embeddings for all 236,531 validation samples.
 - Resuming the completed initial GRU run preserved both checkpoints and reproduced every saved validation metric.
-- `atlas explore-embeddings --run` compares GRU and dimension-matched PCA representations with ridge probes, same-cutoff nearest neighbours, and a few cell trajectories.
+- Residual MLPs support summary inputs or summaries plus ordered history, two declared capacity pairs, dropout, and an epoch-based learning-rate schedule.
+- MLP runs prepare fixed inputs on the GPU once. Additional summary scaling uses observed training inputs only and is saved with the model.
+- All four MLP shapes passed real-data GPU acceptance. Restored dropout, optimizer state, and the learning-rate reduction reproduced the next update exactly; cached validation matched the frozen scorer.
+- Four complete 120-epoch MLP runs exported both full validation groups. Resuming the selected completed run preserved checkpoints, training logs, and runtime measurements while reproducing all metrics.
+- `atlas explore-embeddings --run` compares neural and dimension-matched PCA representations with ridge probes, same-cutoff nearest neighbours, and a few cell trajectories.
 - PCA, probe scaling, and probe fitting use the same fixed, target-independent training subset. Both complete validation groups remain unresampled.
 - `atlas diagnose-baselines --config configs/diagnosis.toml` runs the completed full-data ridge/PCA campaign with independent historical preprocessing and five declared penalties per control.
 - The campaign saves 89 keyed validation forecast files, aggregate/family/horizon/year scores, geographic-parent scores with supports, and unique cell-month building summaries.
@@ -80,7 +85,7 @@ Spatial context, continual learning, live updates, and an inspection application
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
-Neural forecasting gains and useful learned representations remain unproven.
+Neural forecast gains over trees remain unproven. The selected MLP representation has mixed probe results: better occurrence ranking and worse magnitude error than PCA.
 
 ## Remaining work
 
@@ -88,7 +93,7 @@ Neural forecasting gains and useful learned representations remain unproven.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, initial model/representation comparisons, and the baseline-and-diagnosis campaign are complete. The paired nonlinear capacity study is approved and in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, and the paired nonlinear capacity study are complete. The next experiment needs a scope decision. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -208,7 +213,7 @@ Float64 GPU regression agreed with independent small reference solves within `2e
 The run directories retain configurations, all preprocessing and fits, 89 keyed forecasts, metrics, and building summaries.
 All declared comparisons completed. Full command resume preserves fitted models, forecasts, and scores.
 
-**Approved follow-up:** compare a nonlinear network using state/activity summaries with one receiving those same summaries plus ordered monthly history.
+**Completed follow-up:** the paired study below compared a nonlinear network using state/activity summaries with one receiving those same summaries plus ordered monthly history.
 The hypothesis is that nonlinear relationships can improve the strong linear forecast; the paired history control tests whether detailed monthly inputs add further value.
 Use residual MLPs with a 64-dimensional embedding, two declared capacity budgets, and approximately matched parameter counts within each pair.
 Keep the optimizer, regularization, learning-rate schedule, training population, validation rule, and maximum training budget matched.
@@ -216,20 +221,20 @@ Allow training to continue through scheduled learning-rate reductions before dec
 This starts a controlled neural capacity study with a declared comparison and training budget.
 MLP temporal encoders have precedent in [TiDE](https://arxiv.org/abs/2304.08424), but its benchmark results do not establish an Atlas improvement.
 
-Gate 3, the loss, and the reserved-test restriction remain unchanged. The paired MLP study below is now approved; recency weighting, occurrence heads, and new losses remain outside its scope.
+Gate 3, the loss, and the reserved-test restriction remain unchanged. The paired MLP study below is complete; recency weighting, occurrence heads, and new losses remain outside its scope.
 The baseline campaign does not complete Milestone 4.
 Spatial context, finer cells, source-history rebuilds, and reserved-test evaluation remain outside its scope.
 
 ## Paired nonlinear capacity study
 
-**Approved and in progress; no results yet.** Fix the following design before training:
+**Complete.** The following design was fixed before training:
 
 | Inputs | Width | Trainable parameters | Capacity pair |
 | --- | ---: | ---: | --- |
-| State and activity summaries, 252 values | 205 | 249,629 | Small |
-| Same summaries plus ordered history, 2,718 distinct values | 76 | 249,866 | Small |
-| State and activity summaries, 252 values | 457 | 999,329 | Large |
-| Same summaries plus ordered history, 2,718 distinct values | 258 | 1,001,344 | Large |
+| [State and activity summaries, 252 values](configs/mlp-summary-small.toml) | 205 | 249,629 | Small |
+| [Same summaries plus ordered history, 2,718 distinct values](configs/mlp-history-small.toml) | 76 | 249,866 | Small |
+| [State and activity summaries, 252 values](configs/mlp-summary-large.toml) | 457 | 999,329 | Large |
+| [Same summaries plus ordered history, 2,718 distinct values](configs/mlp-history-large.toml) | 258 | 1,001,344 | Large |
 
 Each model has an input projection, two pre-normalized residual MLP blocks, a 64-value embedding, and a linear 222-output forecast head.
 Each block uses two same-width linear layers, GELU, LayerNorm, and dropout 0.1.
@@ -249,6 +254,86 @@ If a configuration meets both frozen Gate 3 criteria in both groups, repeat it w
 Otherwise, report all four results without seed repeats. Keep reserved-test targets closed and end at a measured recommendation.
 No broader architecture search, new loss, spatial context, or source-data rebuild is part of this study.
 
+### Forecast results and training budget
+
+All runs completed 120 epochs on all 768,423 training windows. Each selected epoch 2 using full temporal-validation RMSE.
+Each exported all 217,911 temporal-validation and 18,620 geographic-validation forecasts and 64-value embeddings.
+
+| Model | Temporal RMSE | Temporal AP | Geographic RMSE | Geographic AP |
+| --- | ---: | ---: | ---: | ---: |
+| Summaries, 250k parameters | 0.734177 | 0.302224 | 0.699831 | 0.328964 |
+| History and summaries, 250k | 0.739253 | 0.299104 | 0.706725 | 0.330657 |
+| Summaries, 1M | 0.735676 | 0.298990 | 0.702490 | 0.320023 |
+| History and summaries, 1M | 0.740521 | 0.291422 | 0.708540 | 0.318155 |
+| Frozen tree reference | **0.733758** | **0.307705** | **0.690916** | **0.342283** |
+
+The small summary model has the lowest mean relative RMSE and is the declared embedding candidate.
+Its magnitude errors are 0.057% and 1.290% worse than trees, respectively; its occurrence AP is also lower in both groups.
+The full-data linear summary control remains stronger on both metrics in both groups.
+Adding detailed history worsens selected-checkpoint magnitude error at both parameter budgets.
+Quadrupling the approximate parameter budget also worsens magnitude error and occurrence AP for both input choices.
+These are comparisons of the declared configurations at one seed, with different widths within each capacity pair.
+They do not show that temporal ordering is intrinsically useless or establish a ceiling for other neural configurations.
+
+No run meets Gate 3 in either validation group. The declared condition for additional seeds is therefore unmet, and no seed repeats were run.
+All three target families have worse geographic magnitude error than trees for every MLP.
+The small summary model has slightly better temporal raw-edit RMSE and raw-edit AP in both groups, but worse semantic and net-family scores.
+There is no broad semantic-family gain hidden by the aggregate gate.
+
+Longer training reduced training loss while validation error rose. Minimum temporal RMSE in each scheduled phase was:
+
+| Model | Epochs 1–30 | 31–60 | 61–90 | 91–120 |
+| --- | ---: | ---: | ---: | ---: |
+| Summaries, 250k | 0.734177 | 0.767693 | 0.774647 | 0.777977 |
+| History and summaries, 250k | 0.739253 | 0.759263 | 0.768369 | 0.771289 |
+| Summaries, 1M | 0.735676 | 0.799739 | 0.818230 | 0.825723 |
+| History and summaries, 1M | 0.740521 | 0.790836 | 0.816356 | 0.823790 |
+
+None of the three learning-rate reductions recovered an improvement over the early checkpoint.
+The larger models fit training data more closely and have worse late validation error.
+This supports early overfitting under the current split and training setup; it does not identify its cause.
+The experiment directly tests extended training for these configurations, without demonstrating that every training strategy would behave similarly.
+
+The four runs took 15.36, 14.78, 16.43, and 16.91 minutes, respectively: 63.49 minutes total, including input preparation and validation exports.
+GPU allocations peaked at 2.25–2.27 GiB for summary models and 11.49–11.51 GiB for history models; maximum allocator reservation was 11.74 GiB.
+Peak process memory across runs was 3.66 GiB. All runs fit the workstation without a memory or numerical failure.
+Artifacts are in the four `runs/mlp-{summary,history}-{small,large}-seed20260913/` directories named by the linked configurations.
+Each retains configuration, complete epoch logs, best/latest checkpoints, full family/horizon/target metrics, keyed forecasts, embeddings, and runtime measurements.
+The combined learning curves are `runs/mlp-capacity-curves.png` and `.svg`.
+
+### Embedding evidence and next experiment
+
+The selected small summary MLP uses the existing 64-dimensional PCA/probe comparison on the same 252 prepared inputs.
+PCA, probe scaling, and both probe fits use the declared 32,768 training windows. The neural encoder itself learned from all training windows.
+The comparison retains ridge strength 0.01 and both complete validation groups:
+
+| Validation | Probe representation | Signed-log RMSE | Average precision |
+| --- | --- | ---: | ---: |
+| Temporal | MLP embedding | 0.738198 | **0.308215** |
+| Temporal | PCA | **0.736164** | 0.295931 |
+| Geographic | MLP embedding | 0.709648 | **0.332274** |
+| Geographic | PCA | **0.701431** | 0.323839 |
+
+The MLP probe improves AP by 4.15% and 2.60% relative to PCA, while increasing RMSE by 0.28% and 1.17%.
+This is a limited positive result for occurrence ranking in the learned representation.
+It is a single-seed, supervised-target probe with subset-fitted comparators; it does not establish independent transfer or satisfy the forecast gate.
+The PCA inputs differ from the earlier GRU check, so those PCA scores are not interchangeable.
+
+Inspected June 2024 neighbours show understandable mapped-density groupings for both representations.
+The Kristiansand MLP query has 12,712 mapped buildings; its five neighbours have 9,994–17,096.
+The Oslo query has 20,776 buildings and retrieves another densely mapped cell near Trondheim among its neighbours.
+The eligible query north of Tromsø has 42 buildings and zero June edits; its MLP neighbours have 34–125 buildings, and four also have zero June edits.
+These descriptions use input-month features only. Density similarities and high cosine scores do not establish useful future-change predictions.
+The three trajectory plots show different place-time paths on training-fitted PCA axes; no causal interpretation is assigned to their direction or distance.
+The selected run retains `embedding-checks.json`, fitted PCA/probe tensors, and `trajectories.png`/`.svg`.
+
+**Recommendation, requiring a scope decision:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
+Use earlier development folds to select a bounded weighting comparison, with each fold's own training-only preprocessing and complete target windows.
+This directly tests whether older training activity reduces relevance to later periods while retaining the current objectives and Gate 3 criterion.
+The observed activity shift and learning curves motivate this hypothesis; neither establishes its cause or guarantees a recency benefit.
+Further capacity or longer training alone is a lower priority after this completed comparison.
+Other architectures, regularization choices, and objectives remain possible future experiments. Reserved-test evaluation remains closed until a final model choice is frozen.
+
 ## Current model evidence
 
 All three baselines have been evaluated on all 217,911 temporal-validation samples and 18,620 geographic-validation samples.
@@ -266,7 +351,7 @@ Scores use the frozen signed-log RMSE and occurrence average precision:
 Recent activity improves occurrence ranking, but its arithmetic rate forecasts have larger magnitude errors than zero change.
 Boosted trees reduce aggregate magnitude error by 11.0% on temporal validation and 12.3% on geographic validation relative to zero change.
 Their occurrence AP is 89.6% and 86.6% higher, respectively, than recent-rate persistence.
-This supports trying the compact GRU under the [frozen Gate 3 criterion](SPEC.md#gate-3-decisions--frozen-2026-09-13).
+These results motivated the compact GRU comparison under the [frozen Gate 3 criterion](SPEC.md#gate-3-decisions--frozen-2026-09-13).
 
 Calculated from the temporal tree scores, semantic targets contribute 1.1988% of aggregate squared error.
 Perfect semantic predictions with raw and net errors unchanged would reduce aggregate RMSE by only 0.6012%.
@@ -416,7 +501,9 @@ The baseline evidence supports this experiment, and Gate 3 fixes its forecast su
 
 There is no tooling or GPU blocker. Both complete GRU runs are numerically stable, but neither provides the required forecast or representation improvement.
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. Linear activity summaries nearly match tree magnitude errors and improve occurrence ranking.
-The paired residual-MLP capacity study above is approved. Implementation and four complete scheduled training runs are the immediate work.
+The paired residual-MLP capacity study above is complete: four scheduled runs, full validation exports, and the selected embedding comparison.
+No configuration meets Gate 3, so no additional seeds were required. More capacity and longer training did not improve these configurations.
+The next scope decision is the recommended bounded recency-weighting comparison; it has not started.
 No new objective or recency-weighted refit is authorized. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.

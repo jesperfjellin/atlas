@@ -713,11 +713,11 @@ The bounded [baseline-and-diagnosis campaign](PROGRESS.md#baseline-and-diagnosis
 `atlas diagnose-baselines --config configs/diagnosis.toml` compares transformed recent means, full-data ridge and PCA/ridge, and state/summary controls derived only from the existing permitted inputs.
 It uses earlier temporal folds within the original training partition for selection and diagnosis, with independently fitted training-only preprocessing.
 These supplementary comparisons preserve the primary split, corpus, targets, scoring, and Gate 3 reference and threshold.
-The next approved work is the [paired nonlinear capacity study](PROGRESS.md#paired-nonlinear-capacity-study): residual MLPs using summaries, or summaries plus ordered history, at two matched parameter budgets.
+The [paired nonlinear capacity study](PROGRESS.md#paired-nonlinear-capacity-study) is complete: residual MLPs using summaries, or summaries plus ordered history, at two matched parameter budgets.
 This extends the provisional GRU architecture choice while retaining the frozen data, targets, loss, scoring, and Gate 3 criteria.
-All four runs receive the same declared optimizer, regularization, epoch budget, and learning-rate schedule; checkpoint selection remains temporal-validation RMSE.
-The study includes validation forecasts and embeddings, conditional seed repeats, and the existing embedding checks for the declared candidate.
-It does not authorize new losses, spatial inputs, or reserved-test evaluation.
+All four runs received the same declared optimizer, regularization, epoch budget, and learning-rate schedule; checkpoint selection used temporal-validation RMSE.
+The study completed validation forecasts, embeddings, and the existing embedding checks for the declared candidate. No configuration met the condition for seed repeats.
+The recommended recency-weighting comparison needs the next scope decision. No new losses, spatial inputs, or reserved-test evaluation are authorized.
 
 Deliver:
 
@@ -778,4 +778,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 remains in progress. Complete the approved paired nonlinear capacity study in PROGRESS.md, including all four scheduled runs, the declared validation and embedding comparisons, and conditional seed repeats. Preserve the frozen primary experiment and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 remains in progress. The paired nonlinear capacity study is complete; the recommended recency-weighting comparison in PROGRESS.md requires an owner scope decision before implementation. Preserve the frozen primary experiment and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
