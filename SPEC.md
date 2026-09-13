@@ -2,7 +2,7 @@
 
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
-**Version:** 0.3\
+**Version:** 0.4\
 **Last updated:** 2026-09-13
 
 ## 1. How to use this specification
@@ -655,7 +655,7 @@ Do not produce a report site, dataset registry, quality database, or publication
 - Training-only input preprocessing, signed-log targets, and the squared-error loss in Section 10.1. Primary metrics and aggregation follow Section 9.2.
 
 The acceptance evidence and development summaries are recorded in [PROGRESS.md](PROGRESS.md#norway-corpus-evidence).
-The numeric worthwhile-improvement threshold remains a Gate 3 decision, before neural training.
+The numeric worthwhile-improvement threshold is frozen at Gate 3 below, before neural training.
 
 ### Milestone 3 — Baselines
 
@@ -664,6 +664,31 @@ Deliver the zero-change, recent-rate, and boosted-tree baselines using the froze
 Keep the evaluation output to a compact table plus saved metrics.
 
 **Gate 3:** identify the strongest baseline and freeze the minimum neural-model improvement that would be worthwhile. Confirm that the problem has enough predictable signal to continue.
+
+#### Gate 3 decisions — frozen 2026-09-13
+
+**LOCKED:** the reference is the completed OpenCL LightGBM run in `runs/baselines-norway-opencl/`, configured by [configs/baselines.toml](configs/baselines.toml).
+Its saved models outperform zero change and recent-rate persistence on both primary metrics in both validation groups.
+The [baseline evidence](PROGRESS.md#current-model-evidence) supports proceeding to the compact temporal learner, subject to Milestone 4 approval.
+It does not establish useful neural representations or forecasts for individual places within a cell.
+
+A worthwhile neural forecast must meet both conditions separately on temporal and geographic validation:
+
+- aggregate signed-log RMSE at most **95%** of the reference tree score;
+- aggregate occurrence average precision at least the reference tree score.
+
+Use the exact saved metrics, not rounded table values. Apply the frozen aggregation in Section 9.2.
+For a promising configuration, train two additional seeds and apply these conditions to the arithmetic mean of the three runs' aggregate scores.
+Report every seed's scores. Do not select the best seed or average predictions into an ensemble for this comparison.
+Embedding evidence remains a separate requirement under Section 9.4.
+
+The considered error reductions were 2%, 5%, and 10%.
+Five percent is the chosen practical minimum: 2% offers little benefit for the added model complexity, while 10% is demanding after the tree baseline's improvement.
+This is a project success criterion, not a statistical significance claim.
+
+At final reserved-test evaluation, apply the same relative conditions separately to both test groups, using the saved baselines' scores on each group.
+Do not use validation score values as test thresholds.
+Keep those targets closed until the neural configuration is frozen; do not retune after seeing test results.
 
 ### Milestone 4 — First temporal learner
 
@@ -695,9 +720,9 @@ Each later addition needs a short new scope decision. Do not prebuild any of it.
 ## 16. Explicitly deferred decisions
 
 The source, usable years, taxonomy, cell resolution, splits, transforms, loss family, and primary metrics are frozen at Gates 1 and 2.
+The numeric success threshold is frozen at Gate 3.
 The following decisions remain **DEFERRED**:
 
-- numeric success threshold until Gate 3;
 - neighbouring or multi-scale inputs;
 - GNN architecture;
 - continual-learning algorithm;
@@ -726,4 +751,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 3 is approved. Complete the required baselines and Gate 3 using the frozen corpus, split, feature definitions, preprocessing, loss family, and primary metrics. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks.
+> Milestone 3 and Gate 3 are complete. Milestone 4 is the next experiment and awaits owner approval. Preserve the frozen corpus, split, feature definitions, preprocessing, metrics, and Gate 3 success criterion. Keep reserved-test targets closed to development analysis. Do not implement neural training or supporting frameworks before that approval.

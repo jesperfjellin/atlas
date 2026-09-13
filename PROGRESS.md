@@ -1,7 +1,7 @@
 # Atlas progress
 
 This is the single product roadmap for the Atlas OSM learning experiment.
-The [specification](SPEC.md), version 0.3, defines the experiment, technical contracts, and milestone gates.
+The [specification](SPEC.md), version 0.4, defines the experiment, technical contracts, and milestone gates.
 This document tracks capabilities, remaining work, model evidence, and blockers.
 
 ## Product and current position
@@ -18,8 +18,9 @@ The scaffold uses Python 3.14 and requires the AMD GPU through the main Compose 
 The RX 7900 XTX passed tensor and gradient checks in this service.
 A synthetic GRU forward pass, backward pass, and optimizer step also passed on this GPU.
 Milestones 1 and 2 are complete, including the full Norway corpus and [Gate 2 decisions](SPEC.md#gate-2-decisions--frozen-2026-09-13).
-The real Norway sample loader passed GPU acceptance. Milestone 3 is approved and underway.
-Neural training remains unimplemented.
+The real Norway sample loader passed GPU acceptance.
+Milestone 3 and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13) are complete. Boosted trees are the strongest baseline on both validation groups and primary metrics.
+Milestone 4 awaits approval. Neural training remains unimplemented.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
 
@@ -58,18 +59,20 @@ Spatial context, continual learning, live updates, and an inspection application
 - The frozen scorer preserves target masks, tied occurrence scores, and equal weights for target families and forecast months.
 - `atlas train-baselines --config` compares zero change, a six-month recent rate, and separate LightGBM models for all 222 target/horizon outputs.
 - LightGBM bins flattened inputs in batches and reuses those bins. Completed models survive interruption. Training and forecast execution use the Radeon GPU.
-- Five OpenCL acceptance fits used all 768,423 training samples. Repeated rare-count forecasts, signed net changes, and raw edits passed checkpoint bounds and prediction-loss agreement.
+- The complete OpenCL run fitted 222 target/horizon models using all 768,423 training samples and scored both natural validation groups.
+- Resuming the completed run reused all 222 saved models without changing their files and reproduced the aggregate validation scores.
 - A small checkpoint check rejects tree updates outside the bounds permitted by the squared loss and observed training labels.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
-These capabilities establish runtime, input preparation, and baseline execution. They provide no evidence of predictive skill or useful learned representations yet.
+The baseline results demonstrate predictable OSM activity under the frozen validation split.
+Neural forecasting gains and useful learned representations remain unproven.
 
 ## Remaining work
 
 - [x] **Milestone 0 — GPU scaffold:** standard Compose image, GPU `atlas doctor`, locked dependencies, development checks, startup instructions, and CLI smoke test.
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
-- [ ] **Milestone 3 — Baselines:** compare zero change, recent-rate persistence, and boosted trees, then set the minimum worthwhile neural improvement.
+- [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
 - [ ] **Milestone 4 — Temporal learner:** resumable GRU training, exported embeddings, model and representation comparisons, repeated seeds, and final test evaluation.
 
 Only the currently approved milestone receives implementation work.
@@ -77,27 +80,36 @@ The gates in the specification govern progression through this roadmap.
 
 ## Current model evidence
 
-Zero change and recent-rate persistence have been evaluated on all 217,911 temporal-validation samples and 18,620 geographic-validation samples.
+All three baselines have been evaluated on all 217,911 temporal-validation samples and 18,620 geographic-validation samples.
 Scores use the frozen signed-log RMSE and occurrence average precision:
 
 | Validation | Baseline | Signed-log RMSE | Average precision |
 | --- | --- | ---: | ---: |
 | Temporal | Zero change | 0.824629 | 0.057871 |
 | Temporal | Recent rate | 1.289597 | 0.162328 |
+| Temporal | Boosted trees | **0.733758** | **0.307705** |
 | Geographic | Zero change | 0.787893 | 0.060463 |
 | Geographic | Recent rate | 1.219025 | 0.183421 |
+| Geographic | Boosted trees | **0.690916** | **0.342283** |
 
 Recent activity improves occurrence ranking, but its arithmetic rate forecasts have larger magnitude errors than zero change.
-The full 222-model tree run completed, but its checkpoints failed a training-correctness check. Its tree scores are invalid for comparison.
-For example, the first building-removal tree contains leaf values from -26.46 to 79.37; the loss and training labels permit only 0.0121 to 0.4429.
-The GPU evaluator reproduces LightGBM's native checkpoint predictions, so the error is already present in the fitted model.
-Fresh single-round fits also reproduce the fault in the native ROCm trainer.
-The main command now uses LightGBM's OpenCL GPU trainer. Its full-data acceptance fits pass; a valid complete comparison remains outstanding.
-No neural-model results or embedding comparisons are available.
+Boosted trees reduce aggregate magnitude error by 11.0% on temporal validation and 12.3% on geographic validation relative to zero change.
+Their occurrence AP is 89.6% and 86.6% higher, respectively, than recent-rate persistence.
+This supports trying the compact GRU under the [frozen Gate 3 criterion](SPEC.md#gate-3-decisions--frozen-2026-09-13).
 
-The first comparison needs validation results against the strongest implemented baseline and a linear probe against dimension-matched PCA.
-A promising configuration needs two additional seeds.
-The final reserved-test evaluation follows the frozen model choice.
+The reference run is `runs/baselines-norway-opencl/`, with resolved configuration, logs, 222 saved model files, and complete `metrics.json`.
+Metrics include all six horizons, three target families, and per-target observation and positive supports for each baseline and validation group.
+Every checkpoint passed squared-loss update bounds and the configured depth limit.
+Five full-data acceptance fits also matched native LightGBM validation losses with the GPU evaluator, including repeated rare-count fits and signed net changes.
+The full saved-model resume reproduced the aggregate scores.
+
+The earlier native-ROCm tree models and scores in `runs/baselines-norway/` are invalid: fitting produced updates outside the bounds allowed by the loss and training labels.
+The replacement uses OpenCL with double-precision histograms. It reuses only the earlier run's valid input-bin files through symlinks; keep both directories.
+All replacement tree checkpoints were fitted anew.
+
+This evidence concerns aggregate mapping activity within H3 resolution-6 areas. It does not locate individual changes within those areas or distinguish construction from later mapping.
+No neural-model results or embedding comparisons are available. Milestone 4 must compare its representations with dimension-matched PCA as well as meeting the forecast criterion.
+The final reserved-test evaluation follows the frozen model choice; reserved-test targets have not been inspected during baseline development.
 
 ## Norway corpus evidence
 
@@ -150,7 +162,6 @@ Area and length changes also contain sub-unit values. The occurrence definition 
 
 This evidence supports retaining the small taxonomy, using signed-log targets with squared-error loss, and measuring both magnitude and occurrence.
 The exact transforms, weighting, and primary metrics are frozen in [Gate 2](SPEC.md#gate-2-decisions--frozen-2026-09-13).
-Their usefulness remains a question for the baseline experiment; no predictive result has been demonstrated.
 
 The Geofabrik source contains versions from April 2005 through August 2026 and lacks a replication timestamp header.
 Coverage therefore remains an explicit declaration in `configs/norway.toml`, starting in 2008; the completed experiment uses only 2015–2025.
@@ -182,17 +193,9 @@ Manual development examples matched the intended semantics:
 
 ## Blockers and next decisions
 
-[Milestone 3](SPEC.md#milestone-3--baselines) is approved.
-The OpenCL GPU training path has passed five full-data acceptance fits, including the previously failing targets. The complete rerun remains outstanding.
-Its configuration writes to `runs/baselines-norway-opencl/`.
-The invalid native-ROCm tree models and scores in `runs/baselines-norway/` must not be used as a benchmark.
-The zero-change and recent-rate scores remain valid. No Gate 3 threshold has been frozen.
-The milestone compares the required baselines using the frozen development split and metrics, then sets the minimum worthwhile neural improvement at Gate 3.
+There is no remaining Milestone 3 blocker. The next decision is approval of [Milestone 4](SPEC.md#milestone-4--first-temporal-learner).
+The baseline evidence supports that experiment, and Gate 3 fixes its forecast success criterion before neural training.
 
-The native ROCm tree trainer produced invalid squared-loss updates on this machine, including with serialization, one host thread, and double precision.
-The main command uses OpenCL with double-precision histograms and makes Torch's WSL HSA runtime symbols globally visible to the driver.
-Both training and validation use batched input loading and cached bins. The dense validation workaround and synchronous HIP setting are no longer needed.
-
-GPU runtime and batch acceptance establish readiness for training, but not its speed, stability, or predictive value.
-Geometry omissions and the approximate study boundary remain limitations of the fixed experiment, as described in the specification.
+The OpenCL GPU baseline run is complete. A small GRU optimizer step has passed, but full neural training speed, stability, and predictive value remain unmeasured.
+Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.
