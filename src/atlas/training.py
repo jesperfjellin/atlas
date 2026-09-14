@@ -24,6 +24,7 @@ from atlas.model import (
     masked_loss,
     project_counts,
 )
+from atlas.occurrence import occurrence_loss, probability_scores
 from atlas.samples import (
     INPUT_NAMES,
     TARGET_NAMES,
@@ -90,7 +91,11 @@ def save_checkpoint(
             "optimizer": optimizer.state_dict(),
             "epoch": epoch,
             "step": step,
-            "best_rmse": best_rmse,
+            (
+                "best_log_loss"
+                if configuration.get("objective") == "occurrence"
+                else "best_rmse"
+            ): best_rmse,
             "bad_epochs": bad_epochs,
             "configuration": configuration,
             "random_state": torch.get_rng_state(),
@@ -118,7 +123,12 @@ def restore_checkpoint(
     torch.set_rng_state(saved["random_state"].cpu())
     if saved["accelerator_random_state"] is not None:
         torch.cuda.set_rng_state(saved["accelerator_random_state"].cpu(), device)
-    return saved["epoch"], saved["step"], saved["best_rmse"], saved["bad_epochs"]
+    score_key = (
+        "best_log_loss"
+        if configuration.get("objective") == "occurrence"
+        else "best_rmse"
+    )
+    return saved["epoch"], saved["step"], saved[score_key], saved["bad_epochs"]
 
 
 def batch(
@@ -185,14 +195,15 @@ def scheduled_rate(
 
 
 @torch.inference_mode()
-def validation_rmse(
+def validation_score(
     model: TemporalGRU | ResidualMLP,
     dataset: WindowDataset,
     batch_size: int,
     device: torch.device,
     cached: CachedWindows | None = None,
+    occurrence: bool = False,
 ) -> float:
-    """Select checkpoints with magnitude error on all temporal-validation rows."""
+    """Full temporal-validation RMSE, or log loss for the occurrence study."""
     model.eval()
     total = torch.zeros((6, len(TARGET_NAMES)), dtype=torch.float64, device=device)
     counts = torch.zeros_like(total)
@@ -206,12 +217,20 @@ def validation_rmse(
         prediction, _ = model(inputs)
         if not torch.isfinite(prediction).all():
             raise ValueError("Non-finite neural validation predictions.")
-        errors = project_counts(prediction).double() - transform(targets.double())
-        total += torch.where(mask, errors, 0).square().sum(dim=0)
+        if occurrence:
+            p = prediction.double().sigmoid().clamp(1e-7, 1 - 1e-7)
+            y = (targets.abs() >= 1).double()
+            errors = -(y * p.log() + (1 - y) * (-p).log1p())
+        else:
+            errors = (
+                project_counts(prediction).double() - transform(targets.double())
+            ).square()
+        total += torch.where(mask, errors, 0).sum(dim=0)
         counts += mask.sum(dim=0)
     if not counts.any():
         raise ValueError("Validation has no observed targets.")
-    return float(family_mean(total / counts.clamp_min(1), counts > 0).sqrt())
+    result = family_mean(total / counts.clamp_min(1), counts > 0)
+    return float(result if occurrence else result.sqrt())
 
 
 def sample_keys(dataset: WindowDataset, indices: np.ndarray) -> dict[str, list[str]]:
@@ -263,6 +282,7 @@ def evaluate_model(
     device: torch.device,
     destination: Path,
     cached: CachedWindows | None = None,
+    occurrence: bool = False,
 ) -> dict[str, object]:
     """Export one embedding and six-month forecast per cell/cutoff, then score."""
     model.eval()
@@ -273,13 +293,18 @@ def evaluate_model(
             ("cell", pa.string()),
             ("cutoff", pa.string()),
             ("embedding", pa.list_(pa.float32(), model.embedding_size)),
-            ("prediction_log", pa.list_(pa.float32(), 6 * len(TARGET_NAMES))),
+            (
+                "probability" if occurrence else "prediction_log",
+                pa.list_(pa.float32(), 6 * len(TARGET_NAMES)),
+            ),
         ],
         metadata={
             "target_names": json.dumps(TARGET_NAMES),
             "forecast_order": "horizon-major; months 1 through 6",
-            "prediction_units": "signed_log1p; count forecasts projected to >= 0",
-            "decode": "sign(z) * expm1(abs(z))",
+            "prediction_units": "P(abs(raw target) >= 1)"
+            if occurrence
+            else "signed_log1p; count forecasts projected to >= 0",
+            "decode": "identity" if occurrence else "sign(z) * expm1(abs(z))",
         },
     )
     with pq.ParquetWriter(temporary, schema, compression="zstd") as writer:
@@ -291,7 +316,9 @@ def evaluate_model(
                 else model_inputs(model, dataset, indices, device)
             )
             prediction, embedding = model(inputs)
-            prediction = project_counts(prediction)
+            prediction = (
+                prediction.sigmoid() if occurrence else project_counts(prediction)
+            )
             if (
                 not torch.isfinite(prediction).all()
                 or not torch.isfinite(embedding).all()
@@ -314,7 +341,15 @@ def evaluate_model(
                     schema=schema,
                 )
             )
-    scores = score_predictions(dataset, predictions)
+    if occurrence:
+        if cached is None:
+            raise ValueError("Occurrence evaluation requires cached summary windows.")
+        scores = {
+            "samples": len(dataset),
+            **probability_scores(cached.targets, cached.mask, predictions),
+        }
+    else:
+        scores = score_predictions(dataset, predictions)
     temporary.replace(destination)
     return scores
 
@@ -324,6 +359,10 @@ def train(config_path: Path, resume: Path | None = None) -> None:
     run_started = time.monotonic()
     device = gpu_device()
     raw = tomllib.loads(config_path.read_text())
+    objective = raw.get("objective", "magnitude")
+    if objective not in {"magnitude", "occurrence"}:
+        raise ValueError("Choose the magnitude or occurrence objective.")
+    occurrence = objective == "occurrence"
     settings = Training(**raw["training"])
     half_life = raw.get("recency_half_life_months")
     if half_life is not None and (
@@ -333,6 +372,12 @@ def train(config_path: Path, resume: Path | None = None) -> None:
     ):
         raise ValueError("Recency half-life must be finite and positive.")
     model_settings = raw.get("model")
+    if occurrence and (
+        model_settings is None
+        or model_settings.get("inputs") != "summary"
+        or half_life is not None
+    ):
+        raise ValueError("The occurrence comparison uses unweighted summary MLPs.")
     schedule = raw.get("schedule", {"milestones": [], "factor": 1.0})
     milestones, factor = schedule["milestones"], schedule["factor"]
     if (
@@ -371,6 +416,12 @@ def train(config_path: Path, resume: Path | None = None) -> None:
         configuration["schedule"] = schedule
     if half_life is not None:
         configuration["recency_half_life_months"] = half_life
+    if occurrence:
+        configuration["objective"] = objective
+        configuration["checkpoint_selection"] = (
+            "minimum full temporal-validation binary log loss; "
+            "probabilities clipped to [1e-7, 1-1e-7]"
+        )
     output = paths["output"]
     output.mkdir(parents=True, exist_ok=True)
     config_file = output / "config.json"
@@ -426,6 +477,17 @@ def train(config_path: Path, resume: Path | None = None) -> None:
                 "The recency comparison requires complete training targets."
             )
         model.fit_input_scaling(cached["train"].inputs)
+        if occurrence:
+            observed = cached["train"].mask.sum(0)
+            hits = ((cached["train"].targets.abs() >= 1) & cached["train"].mask).sum(0)
+            if (observed == 0).any():
+                raise ValueError(
+                    "Every occurrence output needs observed training labels."
+                )
+            with torch.no_grad():
+                model.head.bias.copy_(
+                    torch.logit((hits + 0.5) / (observed + 1)).flatten()
+                )
         for name, dataset in validation.items():
             cached[name] = cache_windows(model, dataset, device)
     optimizer = torch.optim.AdamW(
@@ -473,13 +535,17 @@ def train(config_path: Path, resume: Path | None = None) -> None:
                 continue
             optimizer.zero_grad(set_to_none=True)
             prediction, _ = model(inputs)
-            loss = masked_loss(
-                prediction,
-                targets,
-                mask,
-                sample_weight[torch.as_tensor(rows, device=device)]
-                if sample_weight is not None
-                else None,
+            loss = (
+                occurrence_loss(prediction, targets, mask)
+                if occurrence
+                else masked_loss(
+                    prediction,
+                    targets,
+                    mask,
+                    sample_weight[torch.as_tensor(rows, device=device)]
+                    if sample_weight is not None
+                    else None,
+                )
             )
             if not torch.isfinite(loss):
                 raise ValueError(
@@ -495,12 +561,13 @@ def train(config_path: Path, resume: Path | None = None) -> None:
             step += 1
         if not observed_batches:
             raise ValueError("Training has no observed targets.")
-        rmse = validation_rmse(
+        rmse = validation_score(
             model,
             validation["temporal"],
             settings.batch_size,
             device,
             cached.get("temporal"),
+            occurrence,
         )
         epoch += 1
         improved = rmse < best_rmse
@@ -521,8 +588,10 @@ def train(config_path: Path, resume: Path | None = None) -> None:
             "epoch": epoch,
             "step": step,
             "mean_batch_training_loss": total_loss / observed_batches,
-            "temporal_validation_rmse": rmse,
-            "best_rmse": best_rmse,
+            "temporal_validation_log_loss"
+            if occurrence
+            else "temporal_validation_rmse": rmse,
+            "best_log_loss" if occurrence else "best_rmse": best_rmse,
             "seconds": time.monotonic() - started,
             "learning_rate": learning_rate,
         }
@@ -530,7 +599,8 @@ def train(config_path: Path, resume: Path | None = None) -> None:
             stream.write(json.dumps(record, allow_nan=False) + "\n")
         print(
             f"Epoch {epoch}/{settings.epochs}: training loss "
-            f"{record['mean_batch_training_loss']:.6f}; validation RMSE {rmse:.6f}; "
+            f"{record['mean_batch_training_loss']:.6f}; "
+            f"validation {'log loss' if occurrence else 'RMSE'} {rmse:.6f}; "
             f"best {best_rmse:.6f}; lr {learning_rate:g}; {record['seconds']:.1f} s",
             flush=True,
         )
@@ -545,11 +615,13 @@ def train(config_path: Path, resume: Path | None = None) -> None:
             device,
             output / f"{name}.parquet",
             cached.get(name),
+            occurrence,
         )
         metrics[name] = scores
         write_json(output / "metrics.json", metrics)
+        metric = scores["log_loss" if occurrence else "signed_log_rmse"]
         print(
-            f"{name}: RMSE {scores['signed_log_rmse']:.6f}; "
+            f"{name}: {'log loss' if occurrence else 'RMSE'} {metric:.6f}; "
             f"AP {scores['average_precision']:.6f}; {len(dataset):,} exports",
             flush=True,
         )

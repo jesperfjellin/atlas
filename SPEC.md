@@ -719,7 +719,12 @@ All four runs received the same declared optimizer, regularization, epoch budget
 The study completed validation forecasts, embeddings, and the existing embedding checks for the declared candidate. No configuration met the condition for seed repeats.
 The [recency-weighting comparison](PROGRESS.md#recency-weighting-comparison) is complete: historical summary-ridge folds selected a date-based policy, followed by matched uniform and weighted summary-MLP training.
 It retained signed-log squared error, target-family/horizon weights, unweighted preprocessing and validation, and the frozen Gate 3 criteria. Neither neural configuration qualified for seed repeats.
-The proposed direct event-probability comparison needs an owner scope decision. No new target, loss family, spatial input, or reserved-test evaluation is authorized.
+The owner approved the [direct event-probability comparison](PROGRESS.md#event-probability-comparison).
+This supplementary experiment predicts the existing event indicator `abs(raw target) >= 1` with binary log loss.
+It compares training frequencies, recent event rates, regularized logistic models, summary-input boosted trees, and the small summary MLP.
+It preserves the corpus, geographic exclusions, complete target windows, and training-only preprocessing.
+Probability scores and practical inspection metrics remain separate from the frozen point-forecast Gate 3 criterion.
+Spatial inputs, corpus rebuilding, and reserved-test evaluation remain outside this comparison.
 
 Deliver:
 
@@ -780,4 +785,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 remains in progress. The capacity, historical-measurement, and recency comparisons are complete; the proposed event-probability comparison in PROGRESS.md needs an owner scope decision. Preserve the frozen targets and evaluation, and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 remains in progress. Complete the approved event-probability comparison in PROGRESS.md, retaining the existing point-forecast results and frozen Gate 3 criterion. Keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.

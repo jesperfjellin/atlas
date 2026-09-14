@@ -27,7 +27,7 @@ All four paired residual-MLP runs completed their 120-epoch schedules. None beat
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
 The [historical-measurement investigation](#historical-measurement-investigation) is complete: 48 cases show imports, geometry edits, and representation changes in recorded activity.
 No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is complete: the selected policy worsens ridge and MLP magnitude forecasts.
-Uniform training remains preferred. A separate event-probability comparison is the recommended next scope decision.
+Uniform training remains preferred. The separate [event-probability comparison](#event-probability-comparison) is approved and in progress.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -87,6 +87,8 @@ Spatial context, continual learning, live updates, and an inspection application
 - Full command resume preserves completed fits, forecasts, and scores. The campaign loader stops before the reserved 2025 months.
 - Experiment scripts select historical diagnostic cases, decompose saved forecast errors, and replay buffered histories with the production accumulator.
 - Summary ridge and MLP training support date-based recency weights. The bounded comparison shares unweighted preprocessing across policies and preserves checkpoint weighting settings.
+- Summary MLPs also support the approved binary occurrence objective, with probability exports and log-loss checkpoint selection. A real GPU acceptance check reproduced a resumed update exactly.
+- Logistic probability fits, binary GPU trees, tied probability ranking, calibration bins, and fixed-budget inspection scores are implemented. The full occurrence comparison is running; no full-data probability result is established yet.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -98,7 +100,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, and the recency comparison are complete. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain. The proposed event-probability comparison needs a new scope decision.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, and the recency comparison are complete. The event-probability comparison is approved and in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -480,13 +482,45 @@ This closes the declared comparison. It does not rule out nonstationarity, other
 The neural comparison used one seed, one selected half-life, and fixed optimizer settings; it was not a neural recency or regularization search.
 Changing weights also cannot teach a future mapping regime absent from the permitted training data.
 
-**Recommended next scope:** test direct event-probability forecasts using regularized logistic models on the existing 252 summary inputs.
-Use the existing event labels, earlier-fold regularization selection, training-only scaling, and both full natural validation populations.
-Compare probability AP with existing point-forecast rankings, and add a probability score and calibration checks against training-fitted probability baselines.
-This asks whether the objective limits useful occurrence forecasts: a transformed mean and an event probability are different forecast quantities, consistent with [Gneiting's scoring-rule distinction](https://arxiv.org/abs/0912.0902).
-It does not explain the magnitude-model gap or establish that probability forecasting will improve.
-Keep probability metrics separate from the frozen point-forecast Gate 3 criterion. A promising probability result can justify a later nonlinear comparison.
-This new objective requires an owner scope decision before implementation. Corpus rebuilding, spatial inputs, and reserved-test evaluation remain outside it.
+These results support the approved probability comparison below. A transformed mean and an event probability are different forecast quantities, consistent with [Gneiting's scoring-rule distinction](https://arxiv.org/abs/0912.0902).
+Changing the objective does not itself explain the magnitude-model gap or guarantee an improvement.
+
+## Event-probability comparison
+
+**Approved and in progress.** The following design is fixed before fitting, with settings in [configs/occurrence.toml](configs/occurrence.toml).
+Predict the existing event indicator `abs(raw target) >= 1` independently for all 37 targets and six horizons.
+These are recorded OSM events, including imports and corrections. Net-change events can reflect either sign; they do not imply gross additions or removals.
+Reuse the current corpus and all natural training and validation windows. No class balancing, resampling, recency weights, or reserved-test targets.
+
+### Models and selection
+
+- Training-frequency baseline: Jeffreys-smoothed `(positive + 0.5) / (observed + 1)` for each output.
+- Recent-frequency baseline: six observed input months, with one training-frequency pseudo-observation; a completely missing lookback uses the training frequency.
+- Logistic regression: the same 252 summary inputs as the small MLP, standardized with training-only means and scales. Each independent output minimizes observed mean binary log loss plus `strength / 2 * squared coefficient norm`, with unpenalized intercepts. Constant-label training outputs use the smoothed frequency. Select one shared strength from `0.0001`, `0.001`, `0.01`, `0.1`, and `1` by mean 2020/2021/2022 historical-fold aggregate log loss. Fit every fold's preprocessing separately. Refit the chosen strength on all original training windows.
+- Probability trees: independent binary LightGBM models on the same 252 summary inputs. Retain the original tree capacity, learning rate, regularization, 256-round ceiling, and 32-round patience. Select each output's iteration using temporal-validation binary log loss. Use the working OpenCL GPU backend, with no class weights.
+- Probability MLP: retain the small summary architecture, 249,629 parameters, uniform sample permutations, seed `20260913`, AdamW settings, and complete 120-epoch schedule. Initialize output biases from training event frequencies. Replace squared error with masked binary log loss, preserving equal target-family/horizon weights. Select the checkpoint by full temporal-validation log loss.
+
+The logistic strength is selected before original-period evaluation. Tree iteration and neural epoch selection use original temporal validation, as in the magnitude comparison.
+The budgets differ across model families and do not establish an architecture ceiling.
+Fit two additional MLP seeds (`20260914`, `20260915`) only if the initial MLP has lower log loss and no lower AP than every fitted probability comparator in both validation groups.
+Report all seed scores and their mean; do not select the best seed or ensemble predictions.
+
+### Evaluation and decision
+
+Use the existing masks, tied-score AP, and equal family/horizon aggregation. Add binary log loss and Brier score; report both validation groups, families, horizons, actual target years, and geographic parents with supports.
+For numeric log-loss scoring only, clip probabilities to `[1e-7, 1-1e-7]` for every comparator. Retain unmodified probabilities for Brier score, AP, and calibration.
+Report ten fixed probability bins per target/horizon with counts, mean predicted probability, and observed frequency. Empty bins are unavailable, not zero-frequency observations.
+Compare the existing magnitude models only as occurrence rankings; their outputs are not probabilities and receive no Brier or log-loss score.
+
+For each target and forecast month, inspect the 100 highest-ranked observed cells at each cutoff (or all observed cells if fewer).
+Report expected hits, precision, recall, and improvement over inspecting the same number of randomly selected cells.
+Average boundary ties fractionally so constant forecasts do not gain from arbitrary cell order. Report one-month building-addition results explicitly; retain all target/horizon results.
+Each forecast horizon is evaluated separately; repeated cell-month forecasts are not independent observations.
+These practical comparisons are descriptive, not extra selection criteria fitted after results.
+
+A useful probability result supplements the magnitude experiment; it cannot satisfy the original 5% RMSE gate.
+The comparison will determine whether a probability forecast is useful, whether the tested neural model adds value, and whether a later spatial-context experiment is justified.
+It cannot establish that recorded OSM activity measures physical construction. No corpus rebuild, spatial feature, or final reserved-test evaluation is part of this scope.
 
 ## Current model evidence
 

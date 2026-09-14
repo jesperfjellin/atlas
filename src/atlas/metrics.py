@@ -20,6 +20,20 @@ def transform(values: torch.Tensor) -> torch.Tensor:
     return values.sign() * values.abs().log1p()
 
 
+def average_precision(positive: torch.Tensor, scores: torch.Tensor) -> float:
+    """Rank observed binary events, treating each tied score as one group."""
+    support = int(positive.sum())
+    if not support:
+        return float("nan")
+    scores, order = scores.sort(descending=True)
+    hits = positive[order].cumsum(0)
+    ends = torch.cat((scores[:-1] != scores[1:], scores.new_ones(1, dtype=torch.bool)))
+    ranks = torch.arange(1, len(scores) + 1, device=scores.device)[ends]
+    hits = hits[ends].double()
+    added_hits = torch.diff(hits, prepend=hits.new_zeros(1))
+    return float((added_hits * hits / ranks).sum() / support)
+
+
 def score_column(
     target: torch.Tensor,
     prediction_log: torch.Tensor,
@@ -56,14 +70,7 @@ def score_column(
     support = int(positive.sum())
     if not support:
         return mse, float("nan"), observed, 0
-    scores, order = prediction.abs().sort(descending=True)
-    hits = positive[order].cumsum(0)
-    # Evaluate precision only at the END of each tied score group.
-    ends = torch.cat((scores[:-1] != scores[1:], scores.new_ones(1, dtype=torch.bool)))
-    ranks = torch.arange(1, observed + 1, device=truth.device)[ends]
-    hits = hits[ends].double()
-    added_hits = torch.diff(hits, prepend=hits.new_zeros(1))
-    ap = float((added_hits * hits / ranks).sum() / support)
+    ap = average_precision(positive, prediction.abs())
     return mse, ap, observed, support
 
 
