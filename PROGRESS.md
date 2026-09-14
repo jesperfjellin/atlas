@@ -25,6 +25,7 @@ Two complete GRU development runs trail the tree baseline; their linear embeddin
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. A linear state-and-activity-summary model nearly matches tree magnitude errors and improves occurrence ranking.
 All four paired residual-MLP runs completed their 120-epoch schedules. None beats trees; their best checkpoints all come from epoch 2.
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
+A bounded historical-measurement investigation is approved under Milestone 4, using experiment scripts and existing development data.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -82,6 +83,7 @@ Spatial context, continual learning, live updates, and an inspection application
 - `atlas diagnose-baselines --config configs/diagnosis.toml` runs the completed full-data ridge/PCA campaign with independent historical preprocessing and five declared penalties per control.
 - The campaign saves 89 keyed validation forecast files, aggregate/family/horizon/year scores, geographic-parent scores with supports, and unique cell-month building summaries.
 - Full command resume preserves completed fits, forecasts, and scores. The campaign loader stops before the reserved 2025 months.
+- Experiment scripts select historical diagnostic cases, decompose saved forecast errors, and replay buffered histories with the production accumulator.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -93,7 +95,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, and the paired nonlinear capacity study are complete. The next experiment needs a scope decision. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, and the paired nonlinear capacity study are complete. The approved historical-measurement investigation is in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -327,12 +329,44 @@ These descriptions use input-month features only. Density similarities and high 
 The three trajectory plots show different place-time paths on training-fitted PCA axes; no causal interpretation is assigned to their direction or distance.
 The selected run retains `embedding-checks.json`, fitted PCA/probe tensors, and `trajectories.png`/`.svg`.
 
-**Recommendation, requiring a scope decision:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
+**Candidate after the approved historical investigation:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
 Use earlier development folds to select a bounded weighting comparison, with each fold's own training-only preprocessing and complete target windows.
 This directly tests whether older training activity reduces relevance to later periods while retaining the current objectives and Gate 3 criterion.
 The observed activity shift and learning curves motivate this hypothesis; neither establishes its cause or guarantees a recency benefit.
 Further capacity or longer training alone is a lower priority after this completed comparison.
 Other architectures, regularization choices, and objectives remain possible future experiments. Reserved-test evaluation remains closed until a final model choice is frozen.
+
+## Historical-measurement investigation
+
+**Approved and in progress.** Use narrow scripts in `scripts/`, with outputs in the ignored `runs/history-diagnostics/` directory.
+Reuse the production loaders, classification, historical geometry, accumulator, and frozen scorer.
+This investigation adds no CLI command, model, target, or corpus transformation.
+
+[diagnose_activity.py](scripts/diagnose_activity.py) prepares the case manifest and error tables.
+[inspect_history.py](scripts/inspect_history.py) replays the manifest, retaining completed cases on restart; `--case case-01` selects one case.
+Run these scripts from the repository root with `docker compose run --rm atlas uv run python scripts/<script>.py`.
+The full error decomposition reproduced all eight saved model/group scores and recovered their aggregate MSEs.
+The fixed selection contains 48 cases across 23 geographic parents. Initial burst and ordinary-case replays matched all 51 focal corpus features.
+
+Compare saved zero, tree, summary-ridge, and selected summary-MLP forecasts on both complete development-validation populations.
+Decompose aggregate squared error by target, horizon, target year, and geographic parent.
+Allocate repeated forecasts to their actual cell-month while retaining the official window weights; these allocations are not independent observations.
+
+Inspect 48 training-geography cell-months across 2015–2016, 2017–2018, 2019–2020, 2021, 2022, and 2023–2024.
+Each period contains two raw-edit bursts, two semantic/net bursts, two ordinary active months, and two quiet months.
+Rotate semantic/net cases across buildings, roads, POIs, and land use, with a fixed seed and recorded candidate counts.
+Prefer geographic diversity and match controls on parent, opening mapped density, and calendar month where available.
+Outcome-based selection serves diagnosis only; it does not change training or evaluation eligibility.
+
+Replay buffered historical extracts with the existing reference arrays and compare all 51 features with the original corpus.
+Retain entity transitions, historical tags and geometry, changeset IDs where present, raw-edit composition, and explicit unresolved failures.
+Investigate representation changes, geometry refinement, imports, primary-cell movements, and reconstruction omissions without presuming a cause.
+A missing root in a spatial extract is not a corpus defect; reconciliation must expose incomplete inspection coverage.
+Keep 2025-and-later versions out of diagnostic processing and exclude reserved-test geographic targets.
+
+The completion decision is whether to retain measurements and test recency weighting, propose a specific evidenced reconstruction repair, or propose a separate canonical-content target.
+The sample cannot establish national prevalence or causal attribution by itself.
+Recency-weighted fitting, new objectives, harmonization, and corpus rebuilds require a subsequent scope decision.
 
 ## Current model evidence
 
@@ -503,7 +537,8 @@ There is no tooling or GPU blocker. Both complete GRU runs are numerically stabl
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. Linear activity summaries nearly match tree magnitude errors and improve occurrence ranking.
 The paired residual-MLP capacity study above is complete: four scheduled runs, full validation exports, and the selected embedding comparison.
 No configuration meets Gate 3, so no additional seeds were required. More capacity and longer training did not improve these configurations.
-The next scope decision is the recommended bounded recency-weighting comparison; it has not started.
+The bounded historical-measurement investigation above is approved and in progress.
+Its findings will guide the next scope decision; the recency-weighting comparison has not started.
 No new objective or recency-weighted refit is authorized. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
