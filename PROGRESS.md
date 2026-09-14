@@ -26,7 +26,8 @@ The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is compl
 All four paired residual-MLP runs completed their 120-epoch schedules. None beats trees; their best checkpoints all come from epoch 2.
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
 The [historical-measurement investigation](#historical-measurement-investigation) is complete: 48 cases show imports, geometry edits, and representation changes in recorded activity.
-No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is approved and in progress.
+No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is complete: the selected policy worsens ridge and MLP magnitude forecasts.
+Uniform training remains preferred. A separate event-probability comparison is the recommended next scope decision.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -85,6 +86,7 @@ Spatial context, continual learning, live updates, and an inspection application
 - The campaign saves 89 keyed validation forecast files, aggregate/family/horizon/year scores, geographic-parent scores with supports, and unique cell-month building summaries.
 - Full command resume preserves completed fits, forecasts, and scores. The campaign loader stops before the reserved 2025 months.
 - Experiment scripts select historical diagnostic cases, decompose saved forecast errors, and replay buffered histories with the production accumulator.
+- Summary ridge and MLP training support date-based recency weights. The bounded comparison shares unweighted preprocessing across policies and preserves checkpoint weighting settings.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -96,7 +98,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, and the historical-measurement investigation are complete. The approved recency comparison is in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, and the recency comparison are complete. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain. The proposed event-probability comparison needs a new scope decision.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -330,10 +332,8 @@ These descriptions use input-month features only. Density similarities and high 
 The three trajectory plots show different place-time paths on training-fitted PCA axes; no causal interpretation is assigned to their direction or distance.
 The selected run retains `embedding-checks.json`, fitted PCA/probe tensors, and `trajectories.png`/`.svg`.
 
-**Recommended follow-up:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
-Use earlier development folds to select a bounded weighting comparison, with each fold's own training-only preprocessing and complete target windows.
-This directly tests whether older training activity reduces relevance to later periods while retaining the current objectives and Gate 3 criterion.
-The observed activity shift and learning curves motivate this hypothesis; neither establishes its cause or guarantees a recency benefit.
+**Completed follow-up:** the [recency comparison](#recency-weighting-comparison) tested the existing summary inputs with linear and small-MLP controls.
+The selected weighting policy did not improve these forecasts. This weakens that adaptation strategy, without disproving changing mapping regimes.
 Further capacity or longer training alone is a lower priority after this completed comparison.
 Other architectures, regularization choices, and objectives remain possible future experiments. Reserved-test evaluation remains closed until a final model choice is frozen.
 
@@ -390,25 +390,17 @@ The eight inspected 2023–2024 cases together account for only 0.0326% of tempo
 These examples establish mechanisms worth understanding, but cannot explain the overall model gap or quantify their national impact.
 The campaign neither establishes conditional distribution shift nor rules out other causes of early neural overfitting.
 
-### Recommended next experiment
+### Completion decision
 
-Retain the frozen recorded-activity corpus and test recency weighting before another capacity increase.
+Retain the frozen recorded-activity corpus. The investigation led to the recency comparison below before another capacity increase.
 The investigation establishes no implementation defect requiring a rebuild. It does establish limits on interpreting these targets as stable physical content.
 Recency weighting tests adaptation to changing mapping activity; it cannot harmonize historical categories or recover construction dates.
 
-The proposed bounded comparison uses uniform weights and exponential weights with 12- and 24-month half-lives in the existing summary-ridge control.
-Select decay and regularization using the three earlier development folds, each with its own training-only preprocessing and complete target windows.
-Normalize training weights to mean one and retain the same preprocessing within each fold so loss scale and regularization remain comparable.
-Then compare the selected nonuniform policy with uniform training in the small summary MLP, with matched optimization and training budgets.
-Report both full validation groups, family/year errors, and the frozen Gate 3 comparison, including a negative result if recency does not help.
-This comparison can prioritize adaptation; a linear weighting choice need not be optimal for a neural model.
-
-The owner approved the bounded recency comparison below under [Milestone 4](SPEC.md#milestone-4--first-temporal-learner).
 A canonical-content target, harmonization, new losses, and corpus rebuilds remain separate scope decisions. Reserved-test targets stay closed.
 
 ## Recency-weighting comparison
 
-**Approved and in progress.** The design below is fixed before fitting; [configs/recency.toml](configs/recency.toml) records the linear comparison.
+**Complete.** The design below was fixed before fitting; [configs/recency.toml](configs/recency.toml) records the linear comparison.
 The hypothesis is that giving recent recorded activity more training weight improves later forecasts.
 The experiment retains all eligible training windows, fixed targets, unweighted validation, and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13).
 
@@ -423,8 +415,78 @@ The experiment retains all eligible training windows, fixed targets, unweighted 
 Use `atlas train --config <generated-file>` for each neural run, with the existing `--resume` behavior for interruptions.
 Retain fits, resolved settings, forecast exports, metrics, learning curves, and runtime in the run directories.
 Report both validation groups and family/year behavior alongside the uniform controls and frozen trees.
-Repeat a qualifying neural configuration with seeds `20260914` and `20260915` under Gate 3; do not select the best seed.
-A linear choice need not be optimal for the MLP. A negative result closes this bounded comparison without further decay or architecture searches.
+The declared rule required seeds `20260914` and `20260915` for a qualifying neural configuration under Gate 3.
+A linear weighting choice need not be optimal for the MLP; no further decay or architecture search was part of this comparison.
+
+### Linear results
+
+All 45 historical fits completed. Each policy selected ridge penalty `1` by mean fold RMSE:
+
+| Weighting | 2020 RMSE | 2021 RMSE | 2022 RMSE | Mean |
+| --- | ---: | ---: | ---: | ---: |
+| Uniform | 0.818841 | 0.962777 | 0.708791 | **0.830137** |
+| 12-month half-life | 0.817072 | 0.964471 | 0.710421 | 0.830655 |
+| 24-month half-life | 0.817896 | 0.963514 | 0.709371 | 0.830260 |
+
+Uniform weighting wins narrowly. The 24-month policy is the selected nonuniform comparison, with mean RMSE 0.015% higher than uniform.
+That choice was saved before original-period validation. Both policies were then refitted on all 768,423 training windows:
+
+| Weighting | Temporal RMSE | Temporal AP | Geographic RMSE | Geographic AP |
+| --- | ---: | ---: | ---: | ---: |
+| Uniform | **0.732522** | **0.319960** | **0.693459** | 0.348504 |
+| 24-month half-life | 0.732877 | 0.319196 | 0.694464 | **0.348586** |
+
+Recency raises RMSE by 0.048% temporally and 0.145% geographically; both actual target years have higher RMSE in both groups.
+Temporal AP falls by 0.000764 and geographic AP rises by 0.000082. All six family/group RMSEs worsen; there is no consistent linear benefit.
+The campaign took 5 minutes 27 seconds, with 3.55 GiB peak process memory and 0.68 GiB peak GPU allocations.
+All 15 historical and both original-period uniform controls reproduce the previous campaign's RMSE/AP scores.
+The neural weighting choice remained 24 months regardless of these original-period linear results.
+
+### Neural results
+
+Both MLPs completed all 120 epochs and selected epoch 2. The fresh uniform run reproduced every metric from the earlier summary-MLP run.
+
+| Training weights | Temporal RMSE | Temporal AP | Geographic RMSE | Geographic AP |
+| --- | ---: | ---: | ---: | ---: |
+| Uniform | **0.734177** | **0.302224** | **0.699831** | **0.328964** |
+| 24-month half-life | 0.737020 | 0.298154 | 0.704213 | 0.324302 |
+
+Recency raises RMSE by 0.387% temporally and 0.626% geographically.
+AP falls by 0.004070 and 0.004662, respectively; these are absolute AP differences, not percentages of correct predictions.
+Every family/group comparison has higher RMSE and lower AP under recency weighting.
+Both actual target years also worsen:
+
+| Validation targets | Uniform RMSE | Weighted RMSE | Increase |
+| --- | ---: | ---: | ---: |
+| Temporal, 2023 | 0.753406 | 0.754900 | 0.20% |
+| Temporal, 2024 | 0.718106 | 0.722400 | 0.60% |
+| Geographic, 2023 | 0.647185 | 0.649289 | 0.33% |
+| Geographic, 2024 | 0.738776 | 0.744988 | 0.84% |
+
+Seven of eight nonempty geographic parents have higher RMSE.
+The exception improves by 1.93% on only eight cells and 152 windows, while AP falls by 0.030408; it does not establish a useful local gain.
+Parent, family, horizon, and year metrics with supports are retained in each MLP's `scores-by-year-parent.json`.
+
+Neither model meets Gate 3, so the conditional seed repeats were not required.
+The two runs took 33 minutes 8 seconds combined, with 249,629 parameters each and peak GPU allocations of about 2.25 GiB.
+All three scheduled learning-rate reductions failed to improve the selected epoch in either run.
+The [validation curves](runs/recency-norway/learning-curves.svg) rise during later training, especially with recency weights; both training logs show falling training loss.
+Resolved settings, checkpoints, 473,062 validation exports across the two models, and comparison metrics remain in `runs/recency-norway/`.
+
+### Conclusion and next decision
+
+Keep uniform training for the current forecast task. These recency policies supplied no consistent gain, and the selected policy worsened the MLP.
+This closes the declared comparison. It does not rule out nonstationarity, other decay policies, or an interaction with different regularization.
+The neural comparison used one seed, one selected half-life, and fixed optimizer settings; it was not a neural recency or regularization search.
+Changing weights also cannot teach a future mapping regime absent from the permitted training data.
+
+**Recommended next scope:** test direct event-probability forecasts using regularized logistic models on the existing 252 summary inputs.
+Use the existing event labels, earlier-fold regularization selection, training-only scaling, and both full natural validation populations.
+Compare probability AP with existing point-forecast rankings, and add a probability score and calibration checks against training-fitted probability baselines.
+This asks whether the objective limits useful occurrence forecasts: a transformed mean and an event probability are different forecast quantities, consistent with [Gneiting's scoring-rule distinction](https://arxiv.org/abs/0912.0902).
+It does not explain the magnitude-model gap or establish that probability forecasting will improve.
+Keep probability metrics separate from the frozen point-forecast Gate 3 criterion. A promising probability result can justify a later nonlinear comparison.
+This new objective requires an owner scope decision before implementation. Corpus rebuilding, spatial inputs, and reserved-test evaluation remain outside it.
 
 ## Current model evidence
 
@@ -596,8 +658,9 @@ The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is compl
 The paired residual-MLP capacity study above is complete: four scheduled runs, full validation exports, and the selected embedding comparison.
 No configuration meets Gate 3, so no additional seeds were required. More capacity and longer training did not improve these configurations.
 The bounded historical-measurement investigation is complete. Imports and representation changes are demonstrated locally, without a corpus implementation defect or a causal explanation of the model gap.
-The bounded recency-weighting comparison above is approved and in progress.
-New targets and loss families remain outside its scope. Spatial-context implementation remains deferred.
+The bounded recency comparison is complete: uniform training remains preferred, and neither MLP meets Gate 3.
+The proposed direct event-probability comparison needs an owner scope decision; no probability model has been fitted.
+New targets and loss families remain outside the completed scope. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.

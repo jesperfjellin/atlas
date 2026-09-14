@@ -3,7 +3,7 @@
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
 **Version:** 0.6\
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-14
 
 ## 1. How to use this specification
 
@@ -717,9 +717,9 @@ The [paired nonlinear capacity study](PROGRESS.md#paired-nonlinear-capacity-stud
 This extends the provisional GRU architecture choice while retaining the frozen data, targets, loss, scoring, and Gate 3 criteria.
 All four runs received the same declared optimizer, regularization, epoch budget, and learning-rate schedule; checkpoint selection used temporal-validation RMSE.
 The study completed validation forecasts, embeddings, and the existing embedding checks for the declared candidate. No configuration met the condition for seed repeats.
-The [recency-weighting comparison](PROGRESS.md#recency-weighting-comparison) is approved: select a date-based weighting policy with historical summary-ridge folds, then compare uniform and weighted summary-MLP training.
-This permits training-sample weighting while retaining signed-log squared error, target-family/horizon weights, unweighted preprocessing and validation, and the frozen Gate 3 criteria.
-No new target, loss family, spatial input, or reserved-test evaluation is authorized.
+The [recency-weighting comparison](PROGRESS.md#recency-weighting-comparison) is complete: historical summary-ridge folds selected a date-based policy, followed by matched uniform and weighted summary-MLP training.
+It retained signed-log squared error, target-family/horizon weights, unweighted preprocessing and validation, and the frozen Gate 3 criteria. Neither neural configuration qualified for seed repeats.
+The proposed direct event-probability comparison needs an owner scope decision. No new target, loss family, spatial input, or reserved-test evaluation is authorized.
 
 Deliver:
 
@@ -780,4 +780,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 remains in progress. The paired nonlinear capacity study and historical-measurement investigation are complete; the bounded recency-weighting comparison in PROGRESS.md is approved. Preserve the frozen targets and evaluation, and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Milestone 4 remains in progress. The capacity, historical-measurement, and recency comparisons are complete; the proposed event-probability comparison in PROGRESS.md needs an owner scope decision. Preserve the frozen targets and evaluation, and keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
