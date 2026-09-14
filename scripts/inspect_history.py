@@ -130,7 +130,9 @@ def geometry_text(
     return geometry.wkt if geometry is not None else None
 
 
-def inspect_case(case: dict[str, str], output: Path, source: Path) -> None:
+def inspect_case(
+    case: dict[str, str], output: Path, source: Path, buffer_rings: int = 1
+) -> None:
     split = read_split(Path("configs/split.yaml"))
     cell, focal = case["cell"], utc_date(case["month"])
     if (
@@ -146,7 +148,7 @@ def inspect_case(case: dict[str, str], output: Path, source: Path) -> None:
         "case": case,
         "source": str(SOURCE.resolve()),
         "test_start": split.temporal["test"][0].isoformat(),
-        "buffer_rings": 1,
+        "buffer_rings": buffer_rings,
     }
     config = directory / "case.json"
     if config.exists() and json.loads(config.read_text()) != definition:
@@ -156,7 +158,7 @@ def inspect_case(case: dict[str, str], output: Path, source: Path) -> None:
         print(f"Reusing {case['case']}.", flush=True)
         return
     started = time.monotonic()
-    ring = set(h3.grid_disk(cell, 1))
+    ring = set(h3.grid_disk(cell, buffer_rings))
     # Context outside training geography can supply references, never diagnostic
     # target rows. Versions after the case's context are also excluded below.
     context = {c for c in ring if split.groups.get(c) == "train"}
@@ -339,11 +341,11 @@ def inspect_case(case: dict[str, str], output: Path, source: Path) -> None:
                     flags.append("child_induced")
                 if old and new and old.cell != new.cell:
                     flags.append("primary_cell_move")
-                for version in (before, after):
+                for version, inclusive in ((before, False), (after, True)):
                     if version is None or version.tags.get("type") != "multipolygon":
                         continue
                     for kind, ref, role_name in version.members:
-                        member = base.at((kind, ref), t, inclusive=version is after)
+                        member = base.at((kind, ref), t, inclusive=inclusive)
                         if (
                             kind == "w"
                             and role_name in {"", "outer"}
@@ -461,10 +463,12 @@ def inspect_case(case: dict[str, str], output: Path, source: Path) -> None:
     raw_replay = sum(
         r["replay"] for r in focal_rows if r["feature"].startswith("edit_")
     )
-    if raw_replay != sum(roles.values()):
-        raise ValueError(
-            "Diagnostic raw composition does not reconcile to the production replay."
-        )
+    for row in focal_rows:
+        if row["feature"].startswith("edit_"):
+            event = row["feature"].removeprefix("edit_")
+            counted = sum(n for key, n in roles.items() if key.startswith(f"{event}/"))
+            if row["replay"] != counted:
+                raise ValueError(f"Diagnostic {event} count differs from the replay.")
     write_json(
         directory / "summary.json",
         {
@@ -500,6 +504,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--case", action="append", default=[])
+    parser.add_argument(
+        "--buffer-rings",
+        type=int,
+        choices=(1, 2),
+        default=1,
+        help="Use a fresh output directory for the wider coverage check.",
+    )
     args = parser.parse_args()
     if not args.output.resolve().is_relative_to(Path("runs").resolve()):
         raise ValueError("Write diagnostic outputs beneath runs/.")
@@ -521,7 +532,7 @@ def main() -> None:
         ],
     )
     for case in selected:
-        inspect_case(case, args.output, source)
+        inspect_case(case, args.output, source, args.buffer_rings)
 
 
 if __name__ == "__main__":

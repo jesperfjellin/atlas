@@ -347,6 +347,14 @@ This investigation adds no CLI command, model, target, or corpus transformation.
 Run these scripts from the repository root with `docker compose run --rm atlas uv run python scripts/<script>.py`.
 The full error decomposition reproduced all eight saved model/group scores and recovered their aggregate MSEs.
 The fixed selection contains 48 cases across 23 geographic parents. Initial burst and ordinary-case replays matched all 51 focal corpus features.
+Seven of the first eight cases matched all 51 features with the default extraction buffer.
+The remaining case matched all change features but missed one mapped entity; a two-ring extraction recovered it and matched all 51 features.
+This discrepancy was inspection coverage, not a corpus defect. `--buffer-rings 2` supports a separate coverage check in a fresh output directory.
+The full 48-case pass remains in progress; initial findings are in `runs/history-diagnostics/findings.md`.
+
+Initial raw-burst histories contain explicit Kartverket N50 source tags on water, wetland, coastline, and stream objects.
+Two selected changeset headers corroborate those sources. These examples establish local production-process evidence, not national attribution or an explanation of the neural gap.
+The decomposition assigns 70.79% of temporal and 70.76% of geographic tree MSE to raw-edit targets, motivating inspection beyond category-tag changes.
 
 Compare saved zero, tree, summary-ridge, and selected summary-MLP forecasts on both complete development-validation populations.
 Decompose aggregate squared error by target, horizon, target year, and geographic parent.
