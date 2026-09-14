@@ -1,5 +1,6 @@
 """Direct event probabilities, regularized logistic fits, and probability scores."""
 
+import logging
 import math
 from typing import TypedDict
 
@@ -30,7 +31,7 @@ def logistic_fit(
     available: torch.Tensor,
     strength: float,
     *,
-    max_iterations: int = 1000,
+    max_iterations: int = 3000,
     tolerance: float = 1e-5,
 ) -> dict[str, torch.Tensor | float | int]:
     """Fit independent logistic outputs using full-data float64 GPU L-BFGS.
@@ -64,7 +65,12 @@ def logistic_fit(
     # Balance the optimization curvature of rare and common outputs. This is
     # a parameter change, not a change to the likelihood or regularization.
     variance = prior * (1 - prior)
-    weight_scale = (variance + strength).rsqrt()
+    # Include input correlations in the initial Hessian approximation. The
+    # orthogonal rotation preserves the original coefficient L2 norm.
+    covariance = inputs.double().T @ inputs.double() / len(inputs)
+    eigenvalues, axes = torch.linalg.eigh((covariance + covariance.T) / 2)
+    rotated = inputs.double() @ axes
+    weight_scale = (eigenvalues.clamp_min(0)[:, None] * variance + strength).rsqrt()
     intercept_scale = variance.rsqrt()
     initial_intercept = torch.logit(prior)
     optimizer = torch.optim.LBFGS(
@@ -82,11 +88,11 @@ def logistic_fit(
         optimizer.zero_grad(set_to_none=True)
         total = weights.new_zeros(())
         for offset in range(0, len(inputs), 32768):
-            x = inputs[offset : offset + 32768].double()
+            x = rotated[offset : offset + 32768]
             y = labels[offset : offset + 32768].double()
             mask = available[offset : offset + 32768] & active
             logits = (
-                (x @ weights) * weight_scale
+                x @ (weights * weight_scale)
                 + initial_intercept
                 + intercept * intercept_scale
             )
@@ -108,13 +114,19 @@ def logistic_fit(
         if not torch.isfinite(total):
             raise ValueError("Non-finite logistic objective.")
         evaluations += 1
+        if evaluations % 100 == 0:
+            logging.getLogger(__name__).info(
+                "Logistic evaluation %d: summed regularized objective %.6f",
+                evaluations,
+                float(total),
+            )
         return total
 
     optimizer.step(closure)
     final_loss = float(closure())
     assert weights.grad is not None and intercept.grad is not None
     gradient = max(
-        float((weights.grad / weight_scale).abs().max()),
+        float((axes @ (weights.grad / weight_scale)).abs().max()),
         float((intercept.grad / intercept_scale).abs().max()),
     )
     if gradient > tolerance * 5:
@@ -122,7 +134,7 @@ def logistic_fit(
             f"Logistic fit did not converge: maximum gradient {gradient:g}."
         )
     return {
-        "weights": weights.detach() * weight_scale,
+        "weights": axes @ (weights.detach() * weight_scale),
         "intercept": initial_intercept + intercept.detach() * intercept_scale,
         "strength": strength,
         "objective": final_loss,

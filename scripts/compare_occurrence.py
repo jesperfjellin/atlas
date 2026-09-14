@@ -7,6 +7,7 @@ All stages load development months only; no reserved-test evaluation is exposed.
 import argparse
 import ctypes
 import json
+import logging
 import resource
 import time
 import tomllib
@@ -196,6 +197,11 @@ def fit_linear(
             if path.exists():
                 fit = torch.load(path, map_location=device, weights_only=True)
             else:
+                print(
+                    f"Fitting logistic {folder.name}, lambda={strength:g}, "
+                    f"{len(training):,} windows.",
+                    flush=True,
+                )
                 fit = {
                     **logistic_fit(x, labels, mask, strength),
                     "mean": mean,
@@ -455,8 +461,8 @@ def run(config_path: Path, stage: str) -> None:
         "event": "abs(raw target) >= 1",
         "probability_clip": [1e-7, 1 - 1e-7],
         "logistic_solver": {
-            "method": "full-data float64 L-BFGS with output curvature scaling",
-            "max_iterations": 1000,
+            "method": "full-data float64 L-BFGS with input/output curvature scaling",
+            "max_iterations": 3000,
             "maximum_accepted_gradient": 5e-5,
         },
     }
@@ -613,6 +619,7 @@ def run(config_path: Path, stage: str) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path("configs/occurrence.toml"))
     parser.add_argument(

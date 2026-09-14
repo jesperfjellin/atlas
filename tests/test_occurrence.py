@@ -68,6 +68,7 @@ def test_probability_scores_and_inspection_ties_have_exact_expected_values() -> 
 
 def test_logistic_optimum_masks_rows_and_leaves_intercepts_unpenalized() -> None:
     x = torch.tensor([-1.0] * 4 + [1.0] * 4 + [99.0], dtype=torch.float64)[:, None]
+    x = x.expand(-1, 2).clone()  # Exact collinearity exercises the rotation.
     y = torch.tensor(
         [
             [0, 0, 1],
@@ -88,7 +89,8 @@ def test_logistic_optimum_masks_rows_and_leaves_intercepts_unpenalized() -> None
     w, b = fit["weights"], fit["intercept"]
     assert isinstance(w, torch.Tensor) and isinstance(b, torch.Tensor)
     # Analytic first-order condition for the symmetric regularized slope.
-    assert (w[0, 0].sigmoid() - 0.75 + 0.1 * w[0, 0]).item() == pytest.approx(
+    torch.testing.assert_close(w[0], w[1])
+    assert (w[:, 0].sum().sigmoid() - 0.75 + 0.1 * w[0, 0]).item() == pytest.approx(
         0, abs=5e-7
     )
     assert b[0].item() == pytest.approx(0, abs=5e-7)
