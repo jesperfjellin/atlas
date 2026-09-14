@@ -25,7 +25,8 @@ Two complete GRU development runs trail the tree baseline; their linear embeddin
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. A linear state-and-activity-summary model nearly matches tree magnitude errors and improves occurrence ranking.
 All four paired residual-MLP runs completed their 120-epoch schedules. None beats trees; their best checkpoints all come from epoch 2.
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
-A bounded historical-measurement investigation is approved under Milestone 4, using experiment scripts and existing development data.
+The [historical-measurement investigation](#historical-measurement-investigation) is complete: 48 cases show imports, geometry edits, and representation changes in recorded activity.
+No corpus implementation defect was established. Recency weighting is the recommended next experiment and needs a scope decision.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -95,7 +96,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, and the paired nonlinear capacity study are complete. The approved historical-measurement investigation is in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, and the historical-measurement investigation are complete. The recommended recency comparison needs a scope decision. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -329,7 +330,7 @@ These descriptions use input-month features only. Density similarities and high 
 The three trajectory plots show different place-time paths on training-fitted PCA axes; no causal interpretation is assigned to their direction or distance.
 The selected run retains `embedding-checks.json`, fitted PCA/probe tensors, and `trajectories.png`/`.svg`.
 
-**Candidate after the approved historical investigation:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
+**Recommended follow-up:** test recency weighting against uniform weighting using the existing summary inputs, linear control, and small MLP.
 Use earlier development folds to select a bounded weighting comparison, with each fold's own training-only preprocessing and complete target windows.
 This directly tests whether older training activity reduces relevance to later periods while retaining the current objectives and Gate 3 criterion.
 The observed activity shift and learning curves motivate this hypothesis; neither establishes its cause or guarantees a recency benefit.
@@ -338,43 +339,72 @@ Other architectures, regularization choices, and objectives remain possible futu
 
 ## Historical-measurement investigation
 
-**Approved and in progress.** Use narrow scripts in `scripts/`, with outputs in the ignored `runs/history-diagnostics/` directory.
-Reuse the production loaders, classification, historical geometry, accumulator, and frozen scorer.
-This investigation adds no CLI command, model, target, or corpus transformation.
+**Complete.** Experiment scripts and ignored artifacts in `runs/history-diagnostics/` cover all 48 selected cases and the saved validation forecasts.
+The investigation reused production classification, historical geometry, accumulation, and scoring. It added no model, target, or corpus transformation.
+Detailed interpretation, case references, and limitations are in `runs/history-diagnostics/findings.md`.
 
 [diagnose_activity.py](scripts/diagnose_activity.py) prepares the case manifest and error tables.
 [inspect_history.py](scripts/inspect_history.py) replays the manifest, retaining completed cases on restart; `--case case-01` selects one case.
 Run these scripts from the repository root with `docker compose run --rm atlas uv run python scripts/<script>.py`.
-The full error decomposition reproduced all eight saved model/group scores and recovered their aggregate MSEs.
-The fixed selection contains 48 cases across 23 geographic parents. Initial burst and ordinary-case replays matched all 51 focal corpus features.
-Seven of the first eight cases matched all 51 features with the default extraction buffer.
-The remaining case matched all change features but missed one mapped entity; a two-ring extraction recovered it and matched all 51 features.
-This discrepancy was inspection coverage, not a corpus defect. `--buffer-rings 2` supports a separate coverage check in a fresh output directory.
-The full 48-case pass remains in progress; initial findings are in `runs/history-diagnostics/findings.md`.
 
-Initial raw-burst histories contain explicit Kartverket N50 source tags on water, wetland, coastline, and stream objects.
-Two selected changeset headers corroborate those sources. These examples establish local production-process evidence, not national attribution or an explanation of the neural gap.
-The decomposition assigns 70.79% of temporal and 70.76% of geographic tree MSE to raw-edit targets, motivating inspection beyond category-tag changes.
+### Coverage and evidence limits
 
-Compare saved zero, tree, summary-ridge, and selected summary-MLP forecasts on both complete development-validation populations.
-Decompose aggregate squared error by target, horizon, target year, and geographic parent.
-Allocate repeated forecasts to their actual cell-month while retaining the official window weights; these allocations are not independent observations.
+The fixed sample contains 48 training-geography cell-months across 23 H3 parents and six periods from 2015 through 2024.
+Each period has two raw bursts, two semantic/net bursts, two ordinary active controls, and two quiet controls.
+Controls match parent, opening density, and calendar month where available. The outcome-stratified sample cannot estimate national prevalence.
+Reserved-test geographic targets and 2025-and-later versions were excluded from diagnostic processing.
 
-Inspect 48 training-geography cell-months across 2015–2016, 2017–2018, 2019–2020, 2021, 2022, and 2023–2024.
-Each period contains two raw-edit bursts, two semantic/net bursts, two ordinary active months, and two quiet months.
-Rotate semantic/net cases across buildings, roads, POIs, and land use, with a fixed seed and recorded candidate counts.
-Prefer geographic diversity and match controls on parent, opening mapped density, and calendar month where available.
-Outcome-based selection serves diagnosis only; it does not change training or evaluation eligibility.
+Forty-seven cases matched all 51 focal corpus features with the standard extraction buffer.
+Case-06 missed one mapped entity but matched all change features; its separate two-ring extraction matched all 51 features.
+This discrepancy was inspection coverage, not a corpus defect. `--buffer-rings 2` permits a separate coverage check in a fresh output directory.
+Replay agreement establishes consistency with production, not independent correctness of historical meaning or complete geometry coverage.
+Known geometry omissions remain visible. Failures without either spatial assignment cannot be attributed to the focal cell.
 
-Replay buffered historical extracts with the existing reference arrays and compare all 51 features with the original corpus.
-Retain entity transitions, historical tags and geometry, changeset IDs where present, raw-edit composition, and explicit unresolved failures.
-Investigate representation changes, geometry refinement, imports, primary-cell movements, and reconstruction omissions without presuming a cause.
-A missing root in a spatial extract is not a corpus defect; reconciliation must expose incomplete inspection coverage.
-Keep 2025-and-later versions out of diagnostic processing and exclude reserved-test geographic targets.
+### What the histories show
 
-The completion decision is whether to retain measurements and test recency weighting, propose a specific evidenced reconstruction repair, or propose a separate canonical-content target.
-The sample cannot establish national prevalence or causal attribution by itself.
-Recency-weighted fitting, new objectives, harmonization, and corpus rebuilds require a subsequent scope decision.
+Across the 12 raw-burst cases, untagged nodes account for 332,995 of 351,656 counted edits (94.69%).
+The corresponding shares are 87.80% in semantic/net bursts and 60.83% in ordinary controls; these are pooled event shares within selected cases.
+Large raw counts therefore include substantial geometry bookkeeping. They do not count distinct buildings, roads, or physical changes.
+
+- N50 topography imports appear in several periods, including [Frøya in 2016](https://www.openstreetmap.org/changeset/39789797) and [Sør-Varanger in 2023](https://www.openstreetmap.org/changeset/131160277). A separate January 2023 burst includes an [incomplete-upload reversal](https://www.openstreetmap.org/changeset/131226692). Later activity is not uniformly free of import bursts.
+- Selected building bursts have changeset headers identifying Matrikkelen imports in [Lyngdal](https://www.openstreetmap.org/changeset/101378338), [Randaberg](https://www.openstreetmap.org/changeset/113864440), [Eidskog](https://www.openstreetmap.org/changeset/115696911), and [Trondheim](https://www.openstreetmap.org/changeset/118028268). The Trondheim case contains 165,693 raw edits, 4,925 semantic building additions, and 466 removals. These are recorded mapping events, not construction dates.
+- A January 2021 case gains 247 land-use entities while mapped land-use area falls by 1.11 km². Its largest changeset describes [drawing residential areas per block](https://www.openstreetmap.org/changeset/98183985), illustrating sensitivity to representation detail.
+- In the January 2024 Harstad case, a deleted `landuse=forest` way overlaps 95.82% of its old area with a new `natural=wood` relation. The respective [deletion](https://www.openstreetmap.org/changeset/146724544) and [creation](https://www.openstreetmap.org/changeset/146724532) belong to an N50 land-cover import. The frozen classifier includes the former tag and excludes the latter. This supports replacement across IDs as one source of apparent land-use loss; it does not explain the case's entire 5.31 km² net loss or prove physical forest loss.
+
+No same-ID forest/wood switch was flagged in these cases; the Harstad example shows why that absence cannot rule out representation changes.
+Outer-way/relation category differences and child-induced cell movements also occur. Those flags need individual interpretation rather than automatic correction.
+Changeset descriptions support local process attribution, not a causal explanation of model performance. Object source tags alone miss some documented imports.
+
+### Connection to forecast errors
+
+Saved zero, tree, summary-ridge, and small summary-MLP predictions reproduced all eight validation RMSE/AP pairs.
+Error contributions by target, horizon, actual target year, and parent sum back to each frozen aggregate MSE.
+Cell-month allocations retain repeated-forecast weights; they are not independent observations.
+
+Raw-edit targets account for 70.79% of temporal and 70.76% of geographic tree MSE.
+They also account for 80.36% and 86.99% of the small MLP's excess MSE over summary ridge.
+Against trees, however, the MLP has slightly lower temporal raw error; net and semantic errors outweigh that gain.
+These are residual-error decompositions, not gradient shares or estimates of preventable error.
+
+The eight inspected 2023–2024 cases together account for only 0.0326% of temporal tree MSE; Harstad accounts for 0.0214%.
+These examples establish mechanisms worth understanding, but cannot explain the overall model gap or quantify their national impact.
+The campaign neither establishes conditional distribution shift nor rules out other causes of early neural overfitting.
+
+### Recommended next experiment
+
+Retain the frozen recorded-activity corpus and test recency weighting before another capacity increase.
+The investigation establishes no implementation defect requiring a rebuild. It does establish limits on interpreting these targets as stable physical content.
+Recency weighting tests adaptation to changing mapping activity; it cannot harmonize historical categories or recover construction dates.
+
+The proposed bounded comparison uses uniform weights and exponential weights with 12- and 24-month half-lives in the existing summary-ridge control.
+Select decay and regularization using the three earlier development folds, each with its own training-only preprocessing and complete target windows.
+Normalize training weights to mean one and retain the same preprocessing within each fold so loss scale and regularization remain comparable.
+Then compare the selected nonuniform policy with uniform training in the small summary MLP, with matched optimization and training budgets.
+Report both full validation groups, family/year errors, and the frozen Gate 3 comparison, including a negative result if recency does not help.
+This comparison can prioritize adaptation; a linear weighting choice need not be optimal for a neural model.
+
+This is a recommendation, not authorization for fitting. Recency refits require the [next scope decision](SPEC.md#milestone-4--first-temporal-learner).
+A canonical-content target, harmonization, new losses, and corpus rebuilds remain separate scope decisions. Reserved-test targets stay closed.
 
 ## Current model evidence
 
@@ -545,8 +575,8 @@ There is no tooling or GPU blocker. Both complete GRU runs are numerically stabl
 The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is complete. Linear activity summaries nearly match tree magnitude errors and improve occurrence ranking.
 The paired residual-MLP capacity study above is complete: four scheduled runs, full validation exports, and the selected embedding comparison.
 No configuration meets Gate 3, so no additional seeds were required. More capacity and longer training did not improve these configurations.
-The bounded historical-measurement investigation above is approved and in progress.
-Its findings will guide the next scope decision; the recency-weighting comparison has not started.
+The bounded historical-measurement investigation is complete. Imports and representation changes are demonstrated locally, without a corpus implementation defect or a causal explanation of the model gap.
+The recommended next scope is the bounded recency-weighting comparison above; fitting has not started.
 No new objective or recency-weighted refit is authorized. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
