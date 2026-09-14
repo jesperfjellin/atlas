@@ -603,7 +603,7 @@ def run(config_path: Path, stage: str) -> None:
                 f"log loss={overall.get('log_loss')}",
                 flush=True,
             )
-        del probabilities
+            del probabilities
     write_json(output / "comparison.json", summaries)
     if not (output / f"runtime-{stage}.json").exists():
         write_json(

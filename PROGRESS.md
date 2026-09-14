@@ -27,7 +27,9 @@ All four paired residual-MLP runs completed their 120-epoch schedules. None beat
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
 The [historical-measurement investigation](#historical-measurement-investigation) is complete: 48 cases show imports, geometry edits, and representation changes in recorded activity.
 No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is complete: the selected policy worsens ridge and MLP magnitude forecasts.
-Uniform training remains preferred. The separate [event-probability comparison](#event-probability-comparison) is approved and in progress.
+Uniform training remains preferred. The [event-probability comparison](#event-probability-comparison) is complete: trees have the lowest probability error, while logistic regression and the MLP lead different ranking comparisons.
+Direct probability training improves MLP occurrence ranking, but the declared building-inspection comparison does not improve on magnitude summary ridge.
+One simple neighbouring-cell context experiment is the recommended next Gate 4 scope decision.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -88,7 +90,7 @@ Spatial context, continual learning, live updates, and an inspection application
 - Experiment scripts select historical diagnostic cases, decompose saved forecast errors, and replay buffered histories with the production accumulator.
 - Summary ridge and MLP training support date-based recency weights. The bounded comparison shares unweighted preprocessing across policies and preserves checkpoint weighting settings.
 - Summary MLPs also support the approved binary occurrence objective, with probability exports and log-loss checkpoint selection. A real GPU acceptance check reproduced a resumed update exactly.
-- Logistic probability fits, binary GPU trees, tied probability ranking, calibration bins, and fixed-budget inspection scores are implemented. The full occurrence comparison is running; no full-data probability result is established yet.
+- Logistic probability fits, binary GPU trees, tied probability ranking, calibration bins, and fixed-budget inspection scores are implemented. All probability models have completed both natural validation groups, including year and parent comparisons.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -100,7 +102,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, and the recency comparison are complete. The event-probability comparison is approved and in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, recency weighting, and the event-probability comparison are complete. No neural configuration qualifies for the declared seed repeats. Final model selection and reserved-test evaluation after a frozen choice remain; a spatial-context experiment needs the next Gate 4 scope decision.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -487,7 +489,7 @@ Changing the objective does not itself explain the magnitude-model gap or guaran
 
 ## Event-probability comparison
 
-**Approved and in progress.** The following design is fixed before fitting, with settings in [configs/occurrence.toml](configs/occurrence.toml).
+**Complete.** The following design was fixed before fitting, with settings in [configs/occurrence.toml](configs/occurrence.toml).
 Predict the existing event indicator `abs(raw target) >= 1` independently for all 37 targets and six horizons.
 These are recorded OSM events, including imports and corrections. Net-change events can reflect either sign; they do not imply gross additions or removals.
 Reuse the current corpus and all natural training and validation windows. No class balancing, resampling, recency weights, or reserved-test targets.
@@ -502,6 +504,7 @@ Reuse the current corpus and all natural training and validation windows. No cla
 
 The logistic strength is selected before original-period evaluation. Tree iteration and neural epoch selection use original temporal validation, as in the magnitude comparison.
 The budgets differ across model families and do not establish an architecture ceiling.
+The original magnitude trees used ordered histories; the new probability trees use summaries. Their difference does not isolate the tree objective alone.
 Fit two additional MLP seeds (`20260914`, `20260915`) only if the initial MLP has lower log loss and no lower AP than every fitted probability comparator in both validation groups.
 Report all seed scores and their mean; do not select the best seed or ensemble predictions.
 
@@ -519,8 +522,102 @@ Each forecast horizon is evaluated separately; repeated cell-month forecasts are
 These practical comparisons are descriptive, not extra selection criteria fitted after results.
 
 A useful probability result supplements the magnitude experiment; it cannot satisfy the original 5% RMSE gate.
-The comparison will determine whether a probability forecast is useful, whether the tested neural model adds value, and whether a later spatial-context experiment is justified.
+The comparison tests probability forecasts, the added value of the tested neural model, and practical occurrence ranking.
 It cannot establish that recorded OSM activity measures physical construction. No corpus rebuild, spatial feature, or final reserved-test evaluation is part of this scope.
+
+### Probability model evidence
+
+All 15 historical logistic fits converged. Mean fold log loss selected strength `0.01`:
+
+| Strength | 2020 | 2021 | 2022 | Mean log loss |
+| --- | ---: | ---: | ---: | ---: |
+| 0.0001 | 0.150781 | 0.173000 | 0.161728 | 0.161836 |
+| 0.001 | 0.150322 | 0.172890 | 0.161660 | 0.161624 |
+| **0.01** | **0.148752** | **0.172970** | **0.161926** | **0.161216** |
+| 0.1 | 0.147376 | 0.174281 | 0.163825 | 0.161827 |
+| 1 | 0.150073 | 0.179869 | 0.171444 | 0.167128 |
+
+The selected logistic model was refitted on all 768,423 original training windows.
+Every accepted logistic fit has maximum coefficient/intercept gradient below `5e-6` in the declared objective.
+
+All models were scored on 217,911 temporal and 18,620 geographic validation windows:
+
+| Validation | Probability model | Log loss | Brier score | AP |
+| --- | --- | ---: | ---: | ---: |
+| Temporal | Training frequency | 0.184351 | 0.050450 | 0.057871 |
+| Temporal | Recent frequency | 0.163486 | 0.043279 | 0.214015 |
+| Temporal | Logistic | 0.143007 | 0.040354 | **0.323951** |
+| Temporal | Trees | **0.141211** | **0.039896** | 0.319632 |
+| Temporal | MLP | 0.141727 | 0.040141 | 0.322641 |
+| Geographic | Training frequency | 0.189456 | 0.052280 | 0.060463 |
+| Geographic | Recent frequency | 0.170543 | 0.045464 | 0.242897 |
+| Geographic | Logistic | 0.156353 | 0.043973 | 0.351355 |
+| Geographic | Trees | **0.153254** | **0.042890** | 0.353399 |
+| Geographic | MLP | 0.155677 | 0.043749 | **0.359205** |
+
+Trees have the lowest aggregate log loss and Brier score in both groups. Their log loss is 13.62% and 10.14% below recent frequency.
+Logistic regression has the highest temporal AP; the MLP has the highest geographic AP. No model wins every probability and ranking comparison.
+The MLP fails the declared repeat condition: its log loss exceeds trees in both groups, and its temporal AP trails logistic regression. No additional seeds were required.
+
+MLP AP rises by 6.76% temporally and 9.19% geographically relative to the magnitude-trained MLP, with gains in all three families.
+The largest gains are semantic and net-change rankings; raw-edit AP changes little.
+Compared with the stronger magnitude summary-ridge ranking, these aggregate AP gains are only 0.84% and 3.07%.
+Logistic AP exceeds magnitude summary ridge by 1.25% and 0.82%; probability trees change it by -0.10% and +1.40%.
+These are relative AP changes, not percentages of correct predictions or evidence of magnitude improvement.
+
+Trees have lower log loss in all six family/group comparisons and all four actual-year/group comparisons.
+Ranking leaders differ: trees lead raw-edit AP, logistic regression leads temporal semantic/net AP, and the MLP leads geographic semantic/net AP.
+The MLP's geographic AP exceeds probability trees in only two of eight nonempty parents, despite its higher pooled geographic AP.
+Trees have the lowest log loss in five parents, the MLP in two, and logistic regression in one. The ninth designated parent has no eligible windows.
+The saved year/parent scores retain observation and positive supports; pooled AP is not an average of parent APs.
+
+The probability MLP completed all 120 epochs and selected epoch 1. Training loss declined while validation log loss rose; none of the three learning-rate reductions improved epoch 1.
+The last epoch's temporal log loss was 0.154492. Fitting and export took 12 minutes 55 seconds for 249,629 parameters.
+The run shares a process with the preceding logistic fits, so its recorded process-memory peak is not an isolated neural benchmark.
+
+### Practical inspection and calibration
+
+For one-month building additions, the mean number of positive cells among 100 inspected at each of 19 cutoffs is:
+
+| Ranking | Temporal hits per 100 | Geographic hits per 100 |
+| --- | ---: | ---: |
+| Constant frequency / random expectation | 1.3 | 1.3 |
+| Recent frequency | 30.8 | 6.5 |
+| Logistic probability | 33.8 | **8.9** |
+| Tree probability | 33.7 | 8.6 |
+| MLP probability | 33.5 | 8.7 |
+| Magnitude trees | 32.8 | 8.3 |
+| Magnitude summary ridge | **34.1** | **8.9** |
+| Magnitude MLP | 31.2 | 8.3 |
+
+The best new probability ranking does not improve this declared inspection task over magnitude summary ridge.
+Its temporal 642 hits compare with ridge's 648 across 1,900 inspections; geographically both find 169 of 247 positive cell-months.
+Ridge captures 23.10% of temporal and 68.42% of geographic building-addition cell-months under this budget.
+The populations contain 11,469 and 980 cells, respectively: inspecting 100 selects 0.87% versus 10.20% of each group. Compare models within each group.
+These hits describe reconstructed OSM additions, not individual buildings or physical construction. Precision and recall describe this task; aggregate AP covers all targets and horizons.
+
+Probability calibration remains imperfect. For example, the temporal logistic building forecasts in the 0.4–0.5 bin average 44.56%, but only 29.00% of its 538 cases have additions.
+The corresponding tree bin averages 44.64% with a 43.21% event frequency over 361 cases; bin membership differs by model.
+In geographic validation, the MLP's 0.5–0.6 building bin averages 54.31%, with events in 35.56% of 90 cases.
+All fixed bins and supports are retained; small upper bins cannot establish reliable calibration. No calibration model was fitted on validation.
+
+Artifacts are in `runs/occurrence-norway/`, including [learning curves](runs/occurrence-norway/learning-curves.svg), [inspection results](runs/occurrence-norway/building-inspection.svg), and [building calibration with supports](runs/occurrence-norway/building-calibration.svg).
+The completed invocation took 48 minutes 10 seconds, with 5.24 GiB peak process memory.
+The PyTorch counter was reset for MLP training: its reported 3.49 GiB peak excludes earlier linear peaks and OpenCL allocations, so it is not a full-campaign GPU peak.
+The 16 logistic fits took 14 minutes 9 seconds and have 56,166 coefficients/intercepts each.
+All 222 binary tree models completed, retaining 22,086 trees and 675,027 leaf values; selected rounds range from 11 to 253, with median 94.5.
+Tree fitting and bounded prediction checks took about 17 minutes 34 seconds. Model families received different fitting and selection budgets.
+
+### Completion decision
+
+Keep probability trees as the log-loss/Brier comparator, logistic regression as the temporal ranking comparator, and the existing magnitude summary ridge for the inspection comparison.
+Direct probability training helps the tested MLP rank events, but supplies no clear neural advantage over these controls. These probability results do not test or satisfy the frozen magnitude gate.
+The study does not establish a neural performance ceiling or prove that missing inputs explain the remaining errors.
+
+**Recommended next Gate 4 scope:** one simple neighbouring-cell context experiment using the existing monthly corpus, compared with local-history controls.
+Test whether already-observed activity around a cell adds predictive information, while retaining cutoffs, geographic exclusions, buffers, and training-only preprocessing.
+Use direct aggregates before considering graph models or larger architectures. This needs no history reconstruction or resolution change.
+Spatial inputs need the next scope decision; they are not implemented here. Reserved-test targets remain closed, and no probability or magnitude model has been selected for final reserved-test evaluation.
 
 ## Current model evidence
 
