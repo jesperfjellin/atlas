@@ -46,6 +46,25 @@ def historical_split(split: Split, validation_year: int) -> Split:
     )
 
 
+def recency_weights(training: WindowDataset, half_life_months: float) -> np.ndarray:
+    """Date-only weights, normalized over the complete training population.
+
+    Age is measured from the final target month of the latest eligible training
+    window. Each window keeps one weight across its six targets and all cells.
+    """
+    if not np.isfinite(half_life_months) or half_life_months <= 0:
+        raise ValueError("Recency half-life must be finite and positive.")
+    split = training.corpus.split
+    if not len(training) or training.starts != split.target_starts("train"):
+        raise ValueError("Recency weights require the training partition.")
+    if any(split.groups[split.cells[p]] != "train" for p in training.positions):
+        raise ValueError("Recency weights cannot include geographic holdouts.")
+    dates = [split.months[s + split.target_months - 1] for s in training.starts]
+    ordinal = np.array([12 * d.year + d.month for d in dates])
+    weights = np.exp2((ordinal - ordinal.max()) / half_life_months)
+    return np.tile(weights / weights.mean(), len(training.positions))
+
+
 def change_history(
     dataset: WindowDataset, indices: np.ndarray, device: torch.device
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -95,9 +114,9 @@ def control_inputs(
 
 @dataclass
 class Moments:
-    """Uncentered sums in float64; memory depends on columns, not sample count."""
+    """Float64 sums; count is weight mass, or row count for unweighted inputs."""
 
-    count: int
+    count: float
     total: torch.Tensor
     gram: torch.Tensor
     target_total: torch.Tensor
@@ -116,13 +135,30 @@ class Moments:
             zeros(columns, outputs),
         )
 
-    def add(self, inputs: torch.Tensor, targets: torch.Tensor) -> None:
+    def add(
+        self,
+        inputs: torch.Tensor,
+        targets: torch.Tensor,
+        sample_weight: torch.Tensor | None = None,
+    ) -> None:
         x, y = inputs.double(), targets.double()
-        self.count += len(x)
-        self.total += x.sum(0)
-        self.gram += x.T @ x
-        self.target_total += y.sum(0)
-        self.cross += x.T @ y
+        if sample_weight is None:
+            self.count += len(x)
+            weighted_x, weighted_y = x, y
+        else:
+            if (
+                sample_weight.shape != (len(x),)
+                or not torch.isfinite(sample_weight).all()
+                or (sample_weight <= 0).any()
+            ):
+                raise ValueError("Expected one finite positive weight per row.")
+            weight = sample_weight.double()
+            self.count += float(weight.sum())
+            weighted_x, weighted_y = x * weight[:, None], y * weight[:, None]
+        self.total += weighted_x.sum(0)
+        self.gram += x.T @ weighted_x
+        self.target_total += weighted_y.sum(0)
+        self.cross += x.T @ weighted_y
 
     def covariance(self) -> torch.Tensor:
         mean = self.total / self.count
@@ -190,8 +226,8 @@ def ridge_solutions(
 ) -> list[tuple[torch.Tensor, torch.Tensor]]:
     """Solve centered ridge, then fuse the input map and unpenalized intercept.
 
-    Covariances divide by observed sample count, so strengths have the same
-    meaning in each fold and for outputs with different availability.
+    Covariances divide by observed weight mass (sample count when unweighted),
+    so strengths have the same meaning across folds and weighting policies.
     """
     mean = moments.total / moments.count
     target_mean = moments.target_total / moments.count

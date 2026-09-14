@@ -15,7 +15,7 @@ import torch
 import yaml
 
 from atlas.baselines import target_column, write_json
-from atlas.linear import control_inputs
+from atlas.linear import control_inputs, recency_weights
 from atlas.metrics import Scores, score_column, transform
 from atlas.model import (
     ResidualMLP,
@@ -325,6 +325,13 @@ def train(config_path: Path, resume: Path | None = None) -> None:
     device = gpu_device()
     raw = tomllib.loads(config_path.read_text())
     settings = Training(**raw["training"])
+    half_life = raw.get("recency_half_life_months")
+    if half_life is not None and (
+        not isinstance(half_life, (float, int))
+        or not math.isfinite(half_life)
+        or half_life <= 0
+    ):
+        raise ValueError("Recency half-life must be finite and positive.")
     model_settings = raw.get("model")
     schedule = raw.get("schedule", {"milestones": [], "factor": 1.0})
     milestones, factor = schedule["milestones"], schedule["factor"]
@@ -362,6 +369,8 @@ def train(config_path: Path, resume: Path | None = None) -> None:
         configuration["model"] = model_settings
     if "schedule" in raw:
         configuration["schedule"] = schedule
+    if half_life is not None:
+        configuration["recency_half_life_months"] = half_life
     output = paths["output"]
     output.mkdir(parents=True, exist_ok=True)
     config_file = output / "config.json"
@@ -378,6 +387,11 @@ def train(config_path: Path, resume: Path | None = None) -> None:
         write_json(config_file, configuration)
     corpus = CellMonths.read(paths["dataset"], split)
     training = WindowDataset(corpus, preprocessing, "train")
+    sample_weight = (
+        torch.as_tensor(recency_weights(training, half_life), device=device).float()
+        if half_life is not None
+        else None
+    )
     validation = {
         "temporal": WindowDataset(corpus, preprocessing, "validation"),
         "geographic": WindowDataset(
@@ -393,6 +407,8 @@ def train(config_path: Path, resume: Path | None = None) -> None:
         else ResidualMLP(**model_settings)
     ).to(device)
     cached: dict[str, CachedWindows] = {}
+    if sample_weight is not None and not isinstance(model, ResidualMLP):
+        raise ValueError("The recency comparison requires the residual MLP.")
     if isinstance(model, ResidualMLP):
         torch.cuda.reset_peak_memory_stats(device)
         required = (len(training) + sum(len(v) for v in validation.values())) * (
@@ -405,6 +421,10 @@ def train(config_path: Path, resume: Path | None = None) -> None:
                 "plus 2 GiB of working memory."
             )
         cached["train"] = cache_windows(model, training, device)
+        if sample_weight is not None and not cached["train"].mask.all():
+            raise ValueError(
+                "The recency comparison requires complete training targets."
+            )
         model.fit_input_scaling(cached["train"].inputs)
         for name, dataset in validation.items():
             cached[name] = cache_windows(model, dataset, device)
@@ -453,7 +473,14 @@ def train(config_path: Path, resume: Path | None = None) -> None:
                 continue
             optimizer.zero_grad(set_to_none=True)
             prediction, _ = model(inputs)
-            loss = masked_loss(prediction, targets, mask)
+            loss = masked_loss(
+                prediction,
+                targets,
+                mask,
+                sample_weight[torch.as_tensor(rows, device=device)]
+                if sample_weight is not None
+                else None,
+            )
             if not torch.isfinite(loss):
                 raise ValueError(
                     "Non-finite neural training loss; last checkpoint retained."

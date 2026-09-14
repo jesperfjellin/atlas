@@ -1,0 +1,10 @@
+dataset = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
+output = "../runs/recency-norway"
+mlp_template = "mlp-summary-small.toml"
+
+half_lives_months = [12, 24]
+ridge_strengths = [0.001, 0.01, 0.1, 1.0, 10.0]
+validation_years = [2020, 2021, 2022]
+batch_size = 4096

@@ -122,15 +122,22 @@ def family_mean(values: torch.Tensor, available: torch.Tensor) -> torch.Tensor:
 
 
 def masked_loss(
-    prediction: torch.Tensor, target: torch.Tensor, available: torch.Tensor
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    available: torch.Tensor,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Squared signed-log error; missing observations contribute no gradient.
 
     The linear head learns unconstrained transformed means. Count projection is
     applied during evaluation and decoding, as for the tree regressors.
+    Optional sample weights must have global training mean one. Do not normalize
+    them inside a batch; the recency experiment requires complete target masks.
     """
     truth = transform(torch.where(available, target, 0))
     errors = torch.where(available, prediction - truth, 0).square()
+    if sample_weight is not None:
+        errors = errors * sample_weight[:, None, None]
     counts = available.sum(dim=0)
     return family_mean(errors.sum(dim=0) / counts.clamp_min(1), counts > 0)
 

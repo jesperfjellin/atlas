@@ -96,6 +96,28 @@ def test_preprocessing_ignores_heldout_cells_and_months(corpus: CellMonths) -> N
     np.testing.assert_array_equal(after.scale, before.scale)
 
 
+def test_recency_weights_use_training_dates_and_preserve_cell_alignment(
+    corpus: CellMonths,
+) -> None:
+    from atlas.linear import historical_split, recency_weights
+
+    for year in (2020, 2021, 2022):
+        fold = CellMonths(
+            historical_split(corpus.split, year), corpus.values, corpus.available
+        )
+        preprocessing = Preprocessing.fit(fold)
+        training = WindowDataset(fold, preprocessing, "train")
+        weights = recency_weights(training, 12)
+        count = len(training.starts)
+        assert weights.mean() == pytest.approx(1)
+        assert weights[count - 1] / weights[count - 13] == pytest.approx(2)
+        np.testing.assert_array_equal(weights[:count], weights[count:])
+        corpus.values[:] = 1e7
+        np.testing.assert_array_equal(recency_weights(training, 12), weights)
+        with pytest.raises(ValueError):
+            recency_weights(WindowDataset(fold, preprocessing, "validation"), 12)
+
+
 def test_baseline_batches_rates_and_labels_obey_the_same_cutoff(
     corpus: CellMonths,
 ) -> None:

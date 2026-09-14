@@ -26,7 +26,7 @@ The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is compl
 All four paired residual-MLP runs completed their 120-epoch schedules. None beats trees; their best checkpoints all come from epoch 2.
 The selected MLP's embedding probe improves occurrence ranking over PCA but worsens magnitude error. The capacity study is complete.
 The [historical-measurement investigation](#historical-measurement-investigation) is complete: 48 cases show imports, geometry edits, and representation changes in recorded activity.
-No corpus implementation defect was established. Recency weighting is the recommended next experiment and needs a scope decision.
+No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is approved and in progress.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -96,7 +96,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, and the historical-measurement investigation are complete. The recommended recency comparison needs a scope decision. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, and the historical-measurement investigation are complete. The approved recency comparison is in progress. Final model selection, conditional seed repeats, and reserved-test evaluation after a frozen final choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -403,8 +403,28 @@ Then compare the selected nonuniform policy with uniform training in the small s
 Report both full validation groups, family/year errors, and the frozen Gate 3 comparison, including a negative result if recency does not help.
 This comparison can prioritize adaptation; a linear weighting choice need not be optimal for a neural model.
 
-This is a recommendation, not authorization for fitting. Recency refits require the [next scope decision](SPEC.md#milestone-4--first-temporal-learner).
+The owner approved the bounded recency comparison below under [Milestone 4](SPEC.md#milestone-4--first-temporal-learner).
 A canonical-content target, harmonization, new losses, and corpus rebuilds remain separate scope decisions. Reserved-test targets stay closed.
+
+## Recency-weighting comparison
+
+**Approved and in progress.** The design below is fixed before fitting; [configs/recency.toml](configs/recency.toml) records the linear comparison.
+The hypothesis is that giving recent recorded activity more training weight improves later forecasts.
+The experiment retains all eligible training windows, fixed targets, unweighted validation, and [Gate 3](SPEC.md#gate-3-decisions--frozen-2026-09-13).
+
+- Compare uniform weights with exponential half-lives of 12 and 24 months in summary ridge. Age uses the final target month relative to the latest eligible training window; one weight applies to the whole six-month target window.
+- Normalize weights to mean one across the complete training population. Neural batches retain these global weights without renormalizing them locally. This bounded comparison requires complete training targets.
+- Use the existing 2020, 2021, and 2022 historical folds and five ridge penalties: `0.001`, `0.01`, `0.1`, `1`, and `10`. Each fold independently fits preprocessing on its own permitted inputs; every weighting variant shares that unweighted scaling.
+- Select each policy's penalty by mean fold RMSE. Select the best nonuniform policy by the same criterion; ties follow half-life then penalty order. Record if uniform wins, but still test the selected nonuniform policy in the neural comparison.
+- Refit uniform and the selected nonuniform ridge on the original training population, then evaluate both full validation groups. Freeze the neural weighting choice before these original-period results; do not change it afterward.
+- Train fresh uniform and weighted copies of the small summary MLP with [the existing template](configs/mlp-summary-small.toml): 249,629 parameters, seed `20260913`, batch 512, AdamW at `0.0003`, weight decay `0.01`, dropout `0.1`, and 120 epochs. Both keep the same learning-rate reductions, sample permutations, training-only scaling, and checkpoint selection by full temporal-validation RMSE.
+
+[compare_recency.py](scripts/compare_recency.py) runs the linear comparison through Compose and prepares the two MLP configurations under `runs/recency-norway/`.
+Use `atlas train --config <generated-file>` for each neural run, with the existing `--resume` behavior for interruptions.
+Retain fits, resolved settings, forecast exports, metrics, learning curves, and runtime in the run directories.
+Report both validation groups and family/year behavior alongside the uniform controls and frozen trees.
+Repeat a qualifying neural configuration with seeds `20260914` and `20260915` under Gate 3; do not select the best seed.
+A linear choice need not be optimal for the MLP. A negative result closes this bounded comparison without further decay or architecture searches.
 
 ## Current model evidence
 
@@ -576,8 +596,8 @@ The [baseline-and-diagnosis campaign](#baseline-and-diagnosis-campaign) is compl
 The paired residual-MLP capacity study above is complete: four scheduled runs, full validation exports, and the selected embedding comparison.
 No configuration meets Gate 3, so no additional seeds were required. More capacity and longer training did not improve these configurations.
 The bounded historical-measurement investigation is complete. Imports and representation changes are demonstrated locally, without a corpus implementation defect or a causal explanation of the model gap.
-The recommended next scope is the bounded recency-weighting comparison above; fitting has not started.
-No new objective or recency-weighted refit is authorized. Spatial-context implementation remains deferred.
+The bounded recency-weighting comparison above is approved and in progress.
+New targets and loss families remain outside its scope. Spatial-context implementation remains deferred.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.
 Reserved-test targets remain unavailable for development decisions until the final model choice is frozen.

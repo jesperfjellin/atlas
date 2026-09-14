@@ -1,16 +1,21 @@
 """Numerical invariants of batched, masked full-data regression."""
 
 import numpy as np
+import pytest
 import torch
 
 from atlas.linear import Moments, ridge_solutions
 
 
-def test_batched_ridge_matches_augmented_least_squares_with_missing_targets() -> None:
+@pytest.mark.parametrize("weighted", [False, True])
+def test_batched_ridge_matches_augmented_least_squares_with_missing_targets(
+    weighted: bool,
+) -> None:
     rng = np.random.default_rng(37)
     x = rng.normal(size=(53, 7)) + np.arange(7) * 3
     x[:, -1] = 2  # Constant inputs and intercept must not make the solve singular.
     y = rng.normal(size=(53, 3)) + 5
+    sample_weight = np.exp2(np.linspace(-4, 0, len(x))) if weighted else np.ones(len(x))
     mask = np.ones_like(y, dtype=bool)
     mask[::3, 1] = False
     projection = np.zeros((7, 5))
@@ -19,18 +24,23 @@ def test_batched_ridge_matches_augmented_least_squares_with_missing_targets() ->
         rows = np.flatnonzero(mask[:, c])
         moments = Moments.empty(7, 3, torch.tensor(0).device)
         for batch in np.array_split(rows, 4):
-            moments.add(torch.from_numpy(x[batch]), torch.from_numpy(y[batch]))
+            moments.add(
+                torch.from_numpy(x[batch]),
+                torch.from_numpy(y[batch]),
+                torch.from_numpy(sample_weight[batch]) if weighted else None,
+            )
         for ridge, (w, b) in zip(
             (0.001, 0.1, 10.0),
             ridge_solutions(moments, torch.from_numpy(projection), [0.001, 0.1, 10.0]),
             strict=True,
         ):
             design = np.column_stack((x[rows] @ projection, np.ones(len(rows))))
-            penalty = np.diag([np.sqrt(ridge * len(rows))] * 5 + [0.0])
+            root_weight = np.sqrt(sample_weight[rows])
+            penalty = np.diag([np.sqrt(ridge * sample_weight[rows].sum())] * 5 + [0.0])
             # Independent QR/SVD reference, with an unpenalized intercept.
             reference = np.linalg.lstsq(
-                np.vstack((design, penalty)),
-                np.concatenate((y[rows, c], np.zeros(6))),
+                np.vstack((design * root_weight[:, None], penalty)),
+                np.concatenate((y[rows, c] * root_weight, np.zeros(6))),
                 rcond=None,
             )[0]
             expected = np.column_stack((x @ projection, np.ones(len(x)))) @ reference

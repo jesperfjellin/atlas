@@ -34,6 +34,23 @@ def test_loss_weights_targets_families_and_horizons_and_masks_gradients() -> Non
     assert masked_loss(prediction, target, mask).item() == pytest.approx(1)
 
 
+def test_recency_loss_preserves_global_weights_across_unequal_batches() -> None:
+    prediction = torch.arange(1, 5, dtype=torch.float64).view(4, 1, 1)
+    prediction = prediction.expand(4, 6, 37).clone().requires_grad_()
+    target = torch.zeros_like(prediction)
+    mask = torch.ones_like(prediction, dtype=torch.bool)
+    weights = torch.tensor([0.25, 0.5, 1.25, 2.0], dtype=torch.float64)
+    loss = masked_loss(prediction, target, mask, weights)
+    assert loss.item() == pytest.approx((0.25 + 2 + 11.25 + 32) / 4)
+    small = masked_loss(prediction[:1], target[:1], mask[:1], weights[:1])
+    large = masked_loss(prediction[1:], target[1:], mask[1:], weights[1:])
+    torch.testing.assert_close((small + 3 * large) / 4, loss)
+    loss.backward()
+    assert prediction.grad is not None
+    # Equal family/horizon weights remain intact, including the weighting gradient.
+    assert prediction.grad[3, 0, 0].item() == pytest.approx(2 * 4 * 2 / (4 * 6 * 3 * 3))
+
+
 @pytest.mark.parametrize("kind", ["gru", "mlp"])
 def test_checkpoint_restores_embedding_optimizer_and_next_update(
     tmp_path: Path,
