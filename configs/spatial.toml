@@ -1,0 +1,12 @@
+dataset = "../data/derived/norway-2015-2025"
+split = "split.yaml"
+preprocessing = "../data/derived/norway-2015-2025/preprocessing.npz"
+output = "../runs/spatial-norway"
+diagnosis_run = "../runs/diagnosis-norway"
+occurrence_run = "../runs/occurrence-norway"
+
+validation_years = [2020, 2021, 2022]
+ridge_strengths = [0.001, 0.01, 0.1, 1.0, 10.0]
+logistic_strengths = [0.0001, 0.001, 0.01, 0.1, 1.0]
+inspection_budget = 100
+batch_size = 4096

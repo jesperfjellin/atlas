@@ -3,7 +3,7 @@
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
 **Version:** 0.6\
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 ## 1. How to use this specification
 
@@ -169,6 +169,9 @@ The first model does not receive:
 - parent-cell features;
 - contributor identities;
 - external geographic data.
+
+The approved Gate 4 supplement below permits one-ring observed neighbour summaries
+for a paired linear comparison. This does not change the original model inputs.
 
 ### 6.4 Prediction target
 
@@ -738,9 +741,33 @@ Deliver:
 
 **Gate 4:** stop, iterate within the same small model family, or approve one spatial-context experiment.
 
+#### Gate 4 supplement — neighbouring history, approved 2026-09-15
+
+Implement the bounded [neighbouring-history comparison](PROGRESS.md#neighbouring-history-comparison).
+The owner has approved code preparation only. Do not start fitting, real-data acceptance,
+or evaluation until the owner releases the compute hold.
+
+Compare the existing local summary inputs with local inputs plus one-ring summaries,
+using paired ridge and logistic models. Retain the corpus, resolution, target windows,
+loss definitions, and natural validation populations. Select each model's penalty on
+the existing earlier folds with independently fitted training-only preprocessing.
+
+Exclude the focal cell, cells outside the fixed domain, buffer cells and reserved-test cells
+from neighbour aggregates. Training and temporal-validation cells use training neighbours.
+Geographic-validation cells use only validation neighbours' histories through the cutoff.
+No validation neighbour contributes to training or fitted preprocessing at any date.
+Do not treat excluded neighbours as observed zeros; retain coverage indicators.
+
+Report magnitude, occurrence, probability and fixed-budget inspection results as applicable,
+with existing family, horizon, actual-year and geographic-parent comparisons.
+This tests added information for these two models; it does not establish a neural ceiling
+or satisfy the unchanged Gate 3 neural criterion. Neural spatial models, further radii,
+parent aggregates, source-data rebuilds and reserved-test evaluation remain outside scope.
+
 ### Milestone 5 and later
 
-**DEFERRED until Gate 4.** Consider only one addition at a time:
+Only the bounded Gate 4 supplement above is approved. Broader Milestone 5 work remains
+**DEFERRED**. Consider only one addition at a time:
 
 1. simple neighbouring-cell aggregates;
 2. H3 parent-cell context;
@@ -758,7 +785,7 @@ The source, usable years, taxonomy, cell resolution, splits, transforms, loss fa
 The numeric success threshold is frozen at Gate 3.
 The following decisions remain **DEFERRED**:
 
-- neighbouring or multi-scale inputs;
+- spatial inputs beyond the approved one-ring linear comparison, including multi-scale inputs;
 - GNN architecture;
 - continual-learning algorithm;
 - live update cadence;
@@ -786,4 +813,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Milestone 4 remains in progress. The event-probability comparison is complete; PROGRESS.md recommends one neighbouring-cell context experiment for the next Gate 4 scope decision. Retain the existing point-forecast results and frozen Gate 3 criterion. Keep reserved-test targets closed. Milestone 5 remains deferred until Gate 4.
+> Prepare the approved Gate 4 neighbouring-history comparison within Milestone 4. The owner has asked to keep compute available: do not run the experiment or GPU acceptance until that hold is released. Retain the existing point-forecast results and frozen Gate 3 criterion. Keep reserved-test targets closed. Broader Milestone 5 work remains deferred.
