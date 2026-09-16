@@ -3,7 +3,7 @@
 **Status:** Lean proof-of-concept specification  
 **Audience:** Project owner and coding agents  
 **Version:** 0.6\
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 
 ## 1. How to use this specification
 
@@ -744,8 +744,7 @@ Deliver:
 #### Gate 4 supplement — neighbouring history, approved 2026-09-15
 
 Implement the bounded [neighbouring-history comparison](PROGRESS.md#neighbouring-history-comparison).
-The owner has approved code preparation only. Do not start fitting, real-data acceptance,
-or evaluation until the owner releases the compute hold.
+The owner has approved GPU acceptance, fitting and development evaluation.
 
 Compare the existing local summary inputs with local inputs plus one-ring summaries,
 using paired ridge and logistic models. Retain the corpus, resolution, target windows,
@@ -813,4 +812,4 @@ Do not pause merely to propose extra architecture, reporting, abstraction, or au
 
 ## 18. Immediate next instruction
 
-> Prepare the approved Gate 4 neighbouring-history comparison within Milestone 4. The owner has asked to keep compute available: do not run the experiment or GPU acceptance until that hold is released. Retain the existing point-forecast results and frozen Gate 3 criterion. Keep reserved-test targets closed. Broader Milestone 5 work remains deferred.
+> Complete GPU acceptance and the approved Gate 4 neighbouring-history comparison within Milestone 4. Retain the existing point-forecast results and frozen Gate 3 criterion. Keep reserved-test targets closed. Broader Milestone 5 work remains deferred.

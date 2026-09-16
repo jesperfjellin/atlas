@@ -29,7 +29,7 @@ The [historical-measurement investigation](#historical-measurement-investigation
 No corpus implementation defect was established. The [recency-weighting comparison](#recency-weighting-comparison) is complete: the selected policy worsens ridge and MLP magnitude forecasts.
 Uniform training remains preferred. The [event-probability comparison](#event-probability-comparison) is complete: trees have the lowest probability error, while logistic regression and the MLP lead different ranking comparisons.
 Direct probability training improves MLP occurrence ranking, but the declared building-inspection comparison does not improve on magnitude summary ridge.
-The [neighbouring-history comparison](#neighbouring-history-comparison) is approved for code preparation. Execution is on hold at the owner's request.
+The [neighbouring-history comparison](#neighbouring-history-comparison) is in progress. Fitting, validation and result review remain.
 The neural model choice remains open, and reserved-test targets remain closed.
 The Kristiansand domain in `configs/kristiansand.toml` was designated development data through December 2023 before inspection, including earlier reconstruction history.
 The frozen split excludes all listed Kristiansand development cells from reserved testing at every date.
@@ -91,7 +91,7 @@ Spatial work is limited to the approved one-ring linear comparison. Continual le
 - Summary ridge and MLP training support date-based recency weights. The bounded comparison shares unweighted preprocessing across policies and preserves checkpoint weighting settings.
 - Summary MLPs also support the approved binary occurrence objective, with probability exports and log-loss checkpoint selection. A real GPU acceptance check reproduced a resumed update exactly.
 - Logistic probability fits, binary GPU trees, tied probability ranking, calibration bins, and fixed-budget inspection scores are implemented. All probability models have completed both natural validation groups, including year and parent comparisons.
-- One-ring neighbour summaries preserve observed-zero/missing distinctions and geographic/time exclusions in synthetic checks. The paired ridge/logistic runner is prepared; GPU acceptance and model results remain pending under the compute hold.
+- One-ring neighbour summaries preserve observed-zero/missing distinctions and geographic/time exclusions in synthetic checks. The paired ridge/logistic runner passed real-data GPU fitting, export and reuse checks; full model results remain pending.
 - The README explains the experiment, its intended evidence, and data attribution. The specification records the feature and geometry conventions.
 
 The baseline results demonstrate predictable OSM activity under the frozen validation split.
@@ -103,7 +103,7 @@ Neural forecast gains over trees remain unproven. The selected MLP representatio
 - [x] **Milestone 1 — Historical-data slice:** reconstruct a small Norwegian sample, produce the three change families, and check counting semantics with fixtures.
 - [x] **Milestone 2 — Norway corpus:** cell-month Parquet data, fixed temporal and geographic splits, development summaries, a GPU-verified PyTorch loader, leakage checks, and frozen Gate 2 decisions.
 - [x] **Milestone 3 — Baselines:** zero change, recent-rate persistence, and boosted trees evaluated; strongest baseline identified and minimum worthwhile neural improvement frozen at Gate 3.
-- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, recency weighting, and the event-probability comparison are complete. No neural configuration qualifies for the declared seed repeats. The neighbouring-history comparison is approved for code preparation, with execution on hold. Final model selection and reserved-test evaluation after a frozen choice remain.
+- [ ] **Milestone 4 — Temporal learner:** training, resume, exports, model/representation comparisons, the baseline campaign, the paired nonlinear capacity study, the historical-measurement investigation, recency weighting, and the event-probability comparison are complete. No neural configuration qualifies for the declared seed repeats. The neighbouring-history comparison is approved for execution. Final model selection and reserved-test evaluation after a frozen choice remain.
 
 Only the currently approved milestone receives implementation work.
 The gates in the specification govern progression through this roadmap.
@@ -619,8 +619,14 @@ This result led to the approved neighbouring-history comparison below. Reserved-
 
 ## Neighbouring-history comparison
 
-**Code prepared; execution on hold.** The owner needs the workstation for other work.
-Do not start fitting, real-data acceptance or evaluation until the owner releases that hold.
+**In progress.**
+
+- [x] Implement the paired local/neighbour ridge and logistic comparison.
+- [x] Complete synthetic checks and real-data GPU acceptance.
+- [ ] Complete historical selection and original-period fits.
+- [ ] Evaluate both validation groups and review practical gains.
+- [ ] Verify completed-run resume and record the experiment decision.
+
 The [Gate 4 supplement](SPEC.md#gate-4-supplement--neighbouring-history-approved-2026-09-15) defines the permitted spatial inputs and exclusions.
 
 The question is whether already-observed surrounding activity improves prediction beyond a cell's own history.
@@ -642,7 +648,7 @@ No neural training, source-history reconstruction, resolution change or reserved
 The design requires 60 historical fits and four original-period refits. Completed fits survive interruption; an interrupted logistic solve restarts only that candidate.
 Settings are in [configs/spatial.toml](configs/spatial.toml), with the direct runner in [scripts/compare_spatial.py](scripts/compare_spatial.py).
 The reusable neighbour calculations are in [src/atlas/spatial.py](src/atlas/spatial.py).
-After the compute hold is released, the command is `docker compose run --rm atlas uv run python scripts/compare_spatial.py`.
+Run with `docker compose run --rm atlas uv run python scripts/compare_spatial.py`.
 
 ### Evaluation and interpretation
 
@@ -656,7 +662,7 @@ Check that the local controls reproduce their earlier validation losses within n
 Report relative error changes, AP differences and extra building-addition hits per 100 inspections together.
 Consistent improvement across both validation groups would justify considering a spatial neural comparison; a small or mixed result would require a narrower follow-up decision.
 The comparison cannot establish which regional mechanism matters, a general limit on neural performance, or physical-world forecasting ability.
-No new success threshold replaces the frozen Gate 3 criterion. No spatial model results exist yet; GPU acceptance, the complete comparison and resume verification remain pending.
+No new success threshold replaces the frozen Gate 3 criterion. GPU acceptance passed. Full model results and complete-run resume verification remain pending.
 
 ## Current model evidence
 
@@ -830,7 +836,7 @@ No configuration meets Gate 3, so no additional seeds were required. More capaci
 The bounded historical-measurement investigation is complete. Imports and representation changes are demonstrated locally, without a corpus implementation defect or a causal explanation of the model gap.
 The bounded recency comparison is complete: uniform training remains preferred, and neither MLP meets Gate 3.
 The direct event-probability comparison is complete. Probability training improves the tested MLP's ranking but establishes no clear neural advantage over its controls.
-The neighbouring-history comparison is approved for code preparation under the Gate 4 supplement. Experiment execution and GPU acceptance are on hold at the owner's request.
+Complete the neighbouring-history comparison and review its results before choosing the next model experiment.
 Broader spatial models and new targets remain outside this scope.
 Milestone 4 still requires a final model choice, two additional seeds if a configuration becomes promising, and final reserved-test evaluation after that choice is frozen.
 Geometry omissions, the approximate study boundary, and coarse cell-level aggregation remain limitations of the fixed experiment.

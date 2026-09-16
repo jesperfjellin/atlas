@@ -334,6 +334,7 @@ def run(config_path: Path) -> None:
     if not configuration.exists():
         write_json(configuration, resolved)
     device = gpu_device()
+    torch.cuda.init()
     torch.cuda.reset_peak_memory_stats(device)
     started = time.monotonic()
     corpus = CellMonths.read(paths["dataset"], split)
